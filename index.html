@@ -531,11 +531,16 @@
       const ok = checked && !isEmpty && !inPool && scene._idx === slotIndex;
       const wrong = checked && !isEmpty && !inPool && scene._idx !== slotIndex;
 
+      const tapHandlers = {
+        onClick: onTap,
+        onTouchEnd: (e) => { if (e.cancelable) e.preventDefault(); onTap(); },
+      };
+
       if (isEmpty) {
         // 빈 슬롯
         return (
           <div
-            onClick={onTap}
+            {...tapHandlers}
             style={{
               background: 'rgba(199,210,254,0.15)',
               border: '2px dashed #a5b4fc',
@@ -568,7 +573,7 @@
 
       return (
         <div
-          onClick={onTap}
+          {...tapHandlers}
           style={{
             background: ok ? '#d1fae5' : wrong ? '#fee2e2' : isSelected ? '#fef3c7' : 'white',
             border: '3px solid ' + (ok ? '#10b981' : wrong ? '#ef4444' : isSelected ? '#f59e0b' : '#e5e7eb'),
@@ -610,7 +615,7 @@
           )}
           <button
             onClick={(e) => { e.stopPropagation(); speakScene(scene); }}
-            onTouchStart={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => { e.stopPropagation(); if (e.cancelable) e.preventDefault(); speakScene(scene); }}
             style={{
               marginTop: 'auto', width: 36, height: 36, borderRadius: '50%',
               background: '#eef2ff', border: 'none', cursor: 'pointer', fontSize: 14,
