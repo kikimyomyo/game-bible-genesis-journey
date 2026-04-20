@@ -23,6 +23,7 @@
     { "id": "joseph-dream",      "character": "joseph",   "path": "data/episodes/joseph-dream.json" },
     { "id": "joseph-sold",       "character": "joseph",   "path": "data/episodes/joseph-sold.json" },
     { "id": "joseph-pharaoh",    "character": "joseph",   "path": "data/episodes/joseph-pharaoh.json" },
-    { "id": "joseph-forgive",    "character": "joseph",   "path": "data/episodes/joseph-forgive.json" }
+    { "id": "joseph-forgive",    "character": "joseph",   "path": "data/episodes/joseph-forgive.json" },
+    { "id": "joseph-journey",    "character": "joseph",   "path": "data/episodes/joseph-journey.json" }
   ]
 }

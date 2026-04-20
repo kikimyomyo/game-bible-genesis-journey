@@ -3,3 +3,4 @@
 
 content/bible/episodes/*.json    data/episodes/
 content/bible/characters.json    data/characters.json
+assets/bible/joseph-scenes/*.png images/joseph-scenes/

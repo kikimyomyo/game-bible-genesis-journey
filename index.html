@@ -730,6 +730,16 @@
 
           {isEmpty ? (
             <div style={{ fontSize: isMobile ? '1.4em' : '1.6em', opacity: 0.45 }}>⬚</div>
+          ) : scene.img ? (
+            <img
+              src={scene.img}
+              alt={scene.title}
+              draggable={false}
+              style={{
+                width: '100%', maxHeight: isMobile ? 54 : 70, objectFit: 'cover',
+                borderRadius: 6, pointerEvents: 'none',
+              }}
+            />
           ) : (
             <div style={{ fontSize: isMobile ? '2em' : '2.4em', lineHeight: 1 }}>
               {scene.emoji}
@@ -812,9 +822,22 @@
             }}>{slotIndex + 1}</div>
           )}
 
-          <div style={{ fontSize: isMobile ? '2.4em' : '2.8em', lineHeight: 1, marginTop: (!inPool && slotIndex >= 0) ? 14 : 4, marginBottom: 8 }}>
-            {scene.emoji}
-          </div>
+          {scene.img ? (
+            <img
+              src={scene.img}
+              alt={scene.title}
+              draggable={false}
+              style={{
+                width: '100%', maxHeight: isMobile ? 120 : 150, objectFit: 'cover',
+                borderRadius: 10, marginTop: (!inPool && slotIndex >= 0) ? 14 : 4, marginBottom: 8,
+                pointerEvents: 'none',
+              }}
+            />
+          ) : (
+            <div style={{ fontSize: isMobile ? '2.4em' : '2.8em', lineHeight: 1, marginTop: (!inPool && slotIndex >= 0) ? 14 : 4, marginBottom: 8 }}>
+              {scene.emoji}
+            </div>
+          )}
           <div style={{ fontSize: isMobile ? '0.92em' : '1em', fontWeight: 800, marginBottom: 6, color: '#1f2937' }}>
             {scene.title}
           </div>

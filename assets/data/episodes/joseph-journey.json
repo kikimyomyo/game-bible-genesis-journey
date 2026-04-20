@@ -1,0 +1,48 @@
+{
+  "id": "joseph-journey",
+  "kind": "plot-order",
+  "character": "joseph",
+  "title": "요셉의 여정 (그림 복습)",
+  "icon": "🎨",
+  "requires": ["joseph-forgive"],
+  "intro": "요셉의 일생을 5장면 그림으로 순서대로 맞춰봐요!",
+  "scenes": [
+    {
+      "title": "1일 · 요셉과 12형제",
+      "quote": "요셉은 야곱의 12아들 중 열한째, 하나님의 약속 안에서",
+      "ref": "창세기 37:2",
+      "emoji": "👨‍👩‍👧‍👦",
+      "img": "./assets/images/joseph-scenes/01-brothers.png"
+    },
+    {
+      "title": "2일 · 아버지의 큰 사랑",
+      "quote": "야곱이 요셉에게 채색옷을 지어 입혔어요",
+      "ref": "창세기 37:3",
+      "emoji": "🧥",
+      "img": "./assets/images/joseph-scenes/02-coat.png"
+    },
+    {
+      "title": "3일 · 두 가지 꿈",
+      "quote": "곡식 단이 절하고, 해·달·열한 별도 절하는 꿈을 꾸었어요",
+      "ref": "창세기 37:7, 9",
+      "emoji": "⭐",
+      "img": "./assets/images/joseph-scenes/03-dreams.png"
+    },
+    {
+      "title": "4일 · 구덩이와 팔림",
+      "quote": "형들이 미워하여 구덩이에 던지고 애굽 상인에게 팔았어요",
+      "ref": "창세기 37:24-28",
+      "emoji": "😢",
+      "img": "./assets/images/joseph-scenes/04-sold.png"
+    },
+    {
+      "title": "5일 · 가족을 떠나 애굽으로",
+      "quote": "외롭고 두려웠지만 하나님이 함께하셨어요",
+      "ref": "창세기 39:2",
+      "emoji": "🐪",
+      "img": "./assets/images/joseph-scenes/05-egypt.png"
+    }
+  ],
+  "epilogue": "요셉의 이야기는 꿈에서 시작해 구덩이·팔림·애굽까지 이어졌지만, 하나님은 언제나 함께하셨어요. 고난 속에도 하나님의 계획이 있었답니다. 🎉 창세기 여행을 모두 마쳤어요! 참 잘했어요!",
+  "next": null
+}
