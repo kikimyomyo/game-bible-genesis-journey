@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>창세기 이야기 여행</title>
+
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+
+  <script src="./config.js"></script>
+  <script src="./tts.js"></script>
+  <script src="./sfx.js"></script>
+  <script src="./recorder.js"></script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif;
+      background: linear-gradient(135deg, #fef3c7 0%, #e0e7ff 50%, #fce7f3 100%);
+    }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+    .scene-ghost { opacity: 0.3; }
+    .scene-chosen { transform: scale(1.04); box-shadow: 0 10px 24px rgba(99,102,241,0.35); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect, useRef, useMemo } = React;
+    const sfx = window.GameSFX;
+    const { pickVoice } = window.GameTTS || {};
+
+    const LS_KEY = "bible-genesis-journey:progress";
+
+    function loadProgress() {
+      try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); }
+      catch (e) { return {}; }
+    }
+    function saveProgress(p) {
+      try { localStorage.setItem(LS_KEY, JSON.stringify(p)); } catch (e) {}
+    }
+
+    function useIsMobile(bp = 640) {
+      const [m, setM] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < bp : false));
+      useEffect(() => {
+        const r = () => setM(window.innerWidth < bp);
+        window.addEventListener('resize', r);
+        return () => window.removeEventListener('resize', r);
+      }, [bp]);
+      return m;
+    }
+
+    function speakScene(scene) {
+      try {
+        window.speechSynthesis.cancel();
+        const mk = (text, lang) => {
+          const u = new SpeechSynthesisUtterance(text);
+          u.lang = lang;
+          u.rate = lang === 'ko-KR' ? 1.0 : 0.92;
+          const v = pickVoice && pickVoice(lang);
+          if (v) u.voice = v;
+          return u;
+        };
+        window.speechSynthesis.speak(mk(scene.title, 'ko-KR'));
+        if (scene.quote) window.speechSynthesis.speak(mk(scene.quote, 'ko-KR'));
+      } catch (e) {}
+    }
+
+    function shuffleArr(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      if (arr.length >= 2 && a.every((x, i) => x._idx === arr[i]._idx)) return shuffleArr(arr);
+      return a;
+    }
+
+    function StartScreen({ onStart }) {
+      const [name, setName] = useState('');
+      return (
+        <div style={{ maxWidth: 480, margin: '40px auto', padding: 28, background: 'white', borderRadius: 24, boxShadow: '0 10px 30px rgba(0,0,0,0.08)', textAlign: 'center' }}>
+          <div style={{ fontSize: '3.5em', marginBottom: 8 }}>📖</div>
+          <h1 style={{ fontSize: '1.8em', fontWeight: 800, marginBottom: 6 }}>창세기 이야기 여행</h1>
+          <p style={{ color: '#6b7280', marginBottom: 20 }}>아브라함 · 이삭 · 야곱 · 요셉의 이야기를 순서대로 맞춰봐요</p>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="이름"
+            style={{ width: '100%', padding: '16px 18px', border: '2px solid #e5e7eb', borderRadius: 14, fontSize: '1.05em', marginBottom: 14, outline: 'none', fontFamily: 'inherit' }}
+          />
+          <button
+            disabled={!name.trim()}
+            onClick={() => { sfx.click(); onStart(name.trim()); }}
+            style={{ width: '100%', padding: '16px 20px', background: '#6366f1', color: 'white', border: 'none', borderRadius: 14, fontSize: '1.1em', fontWeight: 800, cursor: name.trim() ? 'pointer' : 'not-allowed', opacity: name.trim() ? 1 : 0.5, fontFamily: 'inherit' }}
+          >
+            여행 시작하기 🚀
+          </button>
+        </div>
+      );
+    }
+
+    function ModuleMap({ player, modules, progress, onSelect, onReset }) {
+      const isMobile = useIsMobile();
+      const completed = Object.keys(progress).filter((k) => progress[k]?.completed);
+
+      const isUnlocked = (mod) => {
+        if (!mod.requires || mod.requires.length === 0) return true;
+        return mod.requires.every((req) => progress[req]?.completed);
+      };
+
+      return (
+        <div style={{ maxWidth: 720, margin: '20px auto', padding: isMobile ? 14 : 24 }}>
+          <div style={{ background: 'white', borderRadius: 20, padding: isMobile ? 18 : 24, boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
+              <div>
+                <h1 style={{ fontSize: isMobile ? '1.3em' : '1.6em', fontWeight: 800 }}>📖 {player} 님, 안녕하세요!</h1>
+                <p style={{ color: '#6b7280', marginTop: 4 }}>완료: <b>{completed.length}</b> / {modules.length}</p>
+              </div>
+              {completed.length > 0 && (
+                <button onClick={onReset} style={{ padding: '6px 14px', background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 18, fontSize: '0.88em', cursor: 'pointer', fontFamily: 'inherit' }}>진도 초기화</button>
+              )}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 14, marginTop: 18 }}>
+              {modules.map((mod, idx) => {
+                const done = progress[mod.id]?.completed;
+                const unlocked = isUnlocked(mod);
+                const info = mod.data;
+                const bgColor = done ? '#d1fae5' : unlocked ? '#ffffff' : '#f3f4f6';
+                const borderColor = done ? '#10b981' : unlocked ? (info?.color || '#6366f1') : '#d1d5db';
+                return (
+                  <button
+                    key={mod.id}
+                    disabled={!unlocked}
+                    onClick={() => { sfx.tap(); onSelect(mod); }}
+                    style={{
+                      textAlign: 'left', padding: 18, borderRadius: 16,
+                      background: bgColor, border: `3px solid ${borderColor}`,
+                      cursor: unlocked ? 'pointer' : 'not-allowed',
+                      opacity: unlocked ? 1 : 0.55,
+                      transition: 'all 0.2s',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                      <div style={{ fontSize: '2.4em' }}>{info?.icon || '📘'}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.76em', color: '#6b7280', fontWeight: 700 }}>
+                          {idx + 1}단계 {done ? '· ✅ 완료' : unlocked ? '· 🔓 해금' : '· 🔒 잠김'}
+                        </div>
+                        <div style={{ fontSize: '1.1em', fontWeight: 800 }}>
+                          {info?.title || mod.id}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '0.88em', color: '#4b5563', lineHeight: 1.4 }}>
+                      {info?.intro || ''}
+                    </div>
+                    {!unlocked && mod.requires && mod.requires.length > 0 && (
+                      <div style={{ fontSize: '0.78em', color: '#9ca3af', marginTop: 6 }}>
+                        먼저 완료: {mod.requires.join(', ')}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {completed.length === modules.length && modules.length > 0 && (
+              <div style={{ marginTop: 20, padding: 16, background: '#fef3c7', borderRadius: 14, textAlign: 'center' }}>
+                <div style={{ fontSize: '2em' }}>🎉</div>
+                <div style={{ fontWeight: 800, color: '#78350f' }}>모든 이야기를 완주했어요! 참 잘했어요!</div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function PlotOrderGame({ module, player, onComplete, onBack }) {
+      const isMobile = useIsMobile();
+      const info = module.data;
+      const scenesWithIdx = useMemo(
+        () => info.scenes.map((s, i) => ({ ...s, _idx: i })),
+        [info.scenes]
+      );
+      const [order, setOrder] = useState(() => shuffleArr(scenesWithIdx));
+      const [checked, setChecked] = useState(false);
+      const [hintsUsed, setHintsUsed] = useState(0);
+      const [showEpilogue, setShowEpilogue] = useState(false);
+      const listRef = useRef(null);
+      const sortableRef = useRef(null);
+      const [startTime] = useState(() => Date.now());
+
+      useEffect(() => {
+        if (checked || showEpilogue) {
+          if (sortableRef.current) { sortableRef.current.destroy(); sortableRef.current = null; }
+          return;
+        }
+        if (!listRef.current || !window.Sortable) return;
+        sortableRef.current = window.Sortable.create(listRef.current, {
+          animation: 220, delay: 120, delayOnTouchOnly: true,
+          ghostClass: 'scene-ghost', chosenClass: 'scene-chosen',
+          onChoose: () => sfx.tap(),
+          onEnd: () => {
+            const idxs = Array.from(listRef.current.children).map((c) => Number(c.dataset.idx));
+            setOrder(idxs.map((i) => scenesWithIdx[i]));
+            sfx.click();
+          },
+        });
+        return () => { if (sortableRef.current) { sortableRef.current.destroy(); sortableRef.current = null; } };
+      }, [checked, showEpilogue]);
+
+      const allCorrect = order.every((s, i) => s._idx === i);
+      const correctCount = order.filter((s, i) => s._idx === i).length;
+
+      function check() {
+        sfx.click();
+        setChecked(true);
+        setTimeout(() => {
+          if (allCorrect) sfx.correct();
+          else if (correctCount >= order.length - 1) sfx.partial();
+          else sfx.wrong();
+        }, 80);
+      }
+
+      function useHint() {
+        if (checked) return;
+        const wrongIdxs = order.map((s, i) => (s._idx !== i ? i : -1)).filter((i) => i >= 0);
+        if (!wrongIdxs.length) return;
+        const targetPos = wrongIdxs[Math.floor(Math.random() * wrongIdxs.length)];
+        const correctScene = scenesWithIdx[targetPos];
+        const currentPos = order.findIndex((s) => s._idx === correctScene._idx);
+        if (currentPos < 0 || currentPos === targetPos) return;
+        const next = [...order];
+        [next[targetPos], next[currentPos]] = [next[currentPos], next[targetPos]];
+        setOrder(next);
+        setHintsUsed((h) => h + 1);
+        sfx.click();
+      }
+
+      function reshuffle() {
+        sfx.click();
+        setOrder(shuffleArr(scenesWithIdx));
+        setChecked(false);
+      }
+
+      function goEpilogue() {
+        sfx.click();
+        setShowEpilogue(true);
+      }
+
+      function finish() {
+        sfx.finish();
+        const duration = Math.round((Date.now() - startTime) / 1000);
+        onComplete({
+          moduleId: module.id,
+          score: correctCount,
+          total: order.length,
+          duration_sec: duration,
+          hints_used: hintsUsed,
+          answers: order.map((s, i) => ({
+            position: i + 1,
+            expected: scenesWithIdx[i].title,
+            chosen: s.title,
+            ok: s._idx === i,
+          })),
+        });
+      }
+
+      if (showEpilogue) {
+        return (
+          <div style={{ maxWidth: 560, margin: '40px auto', padding: isMobile ? 20 : 30, background: 'white', borderRadius: 24, boxShadow: '0 20px 60px rgba(0,0,0,0.12)' }}>
+            <div style={{ fontSize: '4em', textAlign: 'center' }}>{info.icon}</div>
+            <h2 style={{ fontSize: '1.6em', fontWeight: 800, textAlign: 'center', marginBottom: 14 }}>{info.character} 이야기를 마쳤어요! 🎉</h2>
+            <div style={{ padding: 18, background: '#fef9c3', borderRadius: 14, lineHeight: 1.7, color: '#713f12', marginBottom: 18 }}>
+              💡 {info.epilogue}
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button onClick={finish} style={{ flex: 1, padding: '16px 20px', background: '#10b981', color: 'white', border: 'none', borderRadius: 14, fontSize: '1.05em', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {info.next ? '다음 이야기로 →' : '✅ 여행 완주!'}
+              </button>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div style={{ maxWidth: 800, margin: '14px auto', padding: isMobile ? 10 : 20 }}>
+          <div style={{ background: 'white', borderRadius: 18, padding: isMobile ? 16 : 22, marginBottom: 14, boxShadow: '0 6px 18px rgba(0,0,0,0.06)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ fontSize: '2em' }}>{info.icon}</div>
+                <div>
+                  <h2 style={{ fontSize: isMobile ? '1.1em' : '1.3em', fontWeight: 800 }}>{info.title}</h2>
+                  <p style={{ fontSize: '0.86em', color: '#6b7280' }}>🙋 {player}</p>
+                </div>
+              </div>
+              <button onClick={onBack} style={{ padding: '6px 14px', background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 18, fontSize: '0.88em', cursor: 'pointer', fontFamily: 'inherit' }}>← 목록으로</button>
+            </div>
+            <p style={{ marginTop: 10, color: '#4b5563' }}>{info.intro}</p>
+            {checked && (
+              <div style={{ marginTop: 12, padding: 12, borderRadius: 12, fontWeight: 700,
+                background: allCorrect ? '#d1fae5' : correctCount >= order.length - 1 ? '#fef3c7' : '#fee2e2' }}>
+                {allCorrect ? '🎉 전부 맞았어요!' : `✏️ ${correctCount}/${order.length} 맞음 — 빨간 카드를 다시 옮겨보세요.`}
+              </div>
+            )}
+          </div>
+
+          <div ref={listRef} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {order.map((scene, i) => {
+              const ok = checked && scene._idx === i;
+              const wrong = checked && scene._idx !== i;
+              return (
+                <div
+                  key={scene._idx}
+                  data-idx={scene._idx}
+                  style={{
+                    background: ok ? '#d1fae5' : wrong ? '#fee2e2' : 'white',
+                    border: '3px solid ' + (ok ? '#10b981' : wrong ? '#ef4444' : '#e5e7eb'),
+                    borderRadius: 14, padding: isMobile ? 12 : 16,
+                    cursor: checked ? 'default' : 'grab', userSelect: 'none',
+                    boxShadow: '0 3px 10px rgba(0,0,0,0.04)',
+                    display: 'flex', alignItems: 'center', gap: 12,
+                  }}
+                >
+                  <div style={{
+                    flexShrink: 0, width: 38, height: 38, borderRadius: '50%',
+                    background: ok ? '#10b981' : wrong ? '#ef4444' : '#e0e7ff',
+                    color: ok || wrong ? 'white' : '#4338ca',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '1.1em', fontWeight: 800,
+                  }}>{i + 1}</div>
+                  <div style={{ flexShrink: 0, fontSize: '1.8em' }}>{scene.emoji}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: isMobile ? '0.98em' : '1.08em', fontWeight: 700 }}>{scene.title}</div>
+                    {scene.quote && (
+                      <div style={{ fontSize: isMobile ? '0.84em' : '0.92em', color: '#6b7280', marginTop: 2, lineHeight: 1.4 }}>
+                        "{scene.quote}"
+                      </div>
+                    )}
+                    {scene.ref && (
+                      <div style={{ fontSize: '0.72em', color: '#9ca3af', marginTop: 2 }}>{scene.ref}</div>
+                    )}
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); speakScene(scene); }}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    style={{ flexShrink: 0, width: 34, height: 34, borderRadius: '50%', background: '#eef2ff', border: 'none', cursor: 'pointer', fontSize: 14 }}
+                    title="이 장면 듣기"
+                  >🔊</button>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginTop: 18 }}>
+            {!checked ? (
+              <>
+                <button onClick={reshuffle} style={btnStyle('#94a3b8')}>🔀 다시 섞기</button>
+                <button onClick={useHint} style={btnStyle('#f59e0b')}>💡 힌트 ({hintsUsed}회)</button>
+                <button onClick={check} style={btnStyle('#6366f1')}>✅ 정답 확인</button>
+              </>
+            ) : allCorrect ? (
+              <button onClick={goEpilogue} style={btnStyle('#10b981')}>📖 이야기 교훈 듣기 →</button>
+            ) : (
+              <>
+                <button onClick={() => { sfx.click(); setChecked(false); }} style={btnStyle('#f59e0b')}>✏️ 다시 고치기</button>
+                <button onClick={goEpilogue} style={btnStyle('#6b7280')}>여기서 끝내기</button>
+              </>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function btnStyle(color) {
+      return { padding: '13px 20px', fontSize: '1em', fontWeight: 800, color: 'white',
+               background: color, border: 'none', borderRadius: 14, cursor: 'pointer',
+               boxShadow: '0 6px 14px rgba(0,0,0,0.12)', fontFamily: 'inherit' };
+    }
+
+    function App() {
+      const [player, setPlayer] = useState(() => localStorage.getItem(LS_KEY + ":player") || '');
+      const [modulesConfig, setModulesConfig] = useState(null);
+      const [modules, setModules] = useState([]);
+      const [currentModule, setCurrentModule] = useState(null);
+      const [progress, setProgress] = useState(() => loadProgress());
+
+      useEffect(() => {
+        (async () => {
+          try {
+            const cfgResp = await fetch('./modules.json');
+            const cfg = await cfgResp.json();
+            setModulesConfig(cfg);
+            const loaded = await Promise.all(cfg.modules.map(async (m) => {
+              const r = await fetch('./assets/' + m.path);
+              const data = await r.json();
+              return { id: m.id, kind: m.kind, path: m.path, data, requires: data.requires || [] };
+            }));
+            setModules(loaded);
+          } catch (e) {
+            console.error('Failed to load modules:', e);
+          }
+        })();
+      }, []);
+
+      function onStart(name) {
+        setPlayer(name);
+        try { localStorage.setItem(LS_KEY + ":player", name); } catch (e) {}
+      }
+
+      function onSelect(mod) {
+        setCurrentModule(mod);
+      }
+
+      function onBack() {
+        sfx.click();
+        setCurrentModule(null);
+      }
+
+      function onComplete(result) {
+        const updated = { ...progress, [result.moduleId]: { completed: true, score: result.score, total: result.total, ts: Date.now() } };
+        setProgress(updated);
+        saveProgress(updated);
+        try {
+          window.GameRecorder.submit({
+            player,
+            score: result.score,
+            total: result.total,
+            duration_sec: result.duration_sec,
+            answers: result.answers,
+            meta: {
+              moduleId: result.moduleId,
+              moduleKind: currentModule?.kind,
+              hints_used: result.hints_used,
+              character: currentModule?.data?.character,
+            },
+          });
+        } catch (e) {}
+        setCurrentModule(null);
+      }
+
+      function onReset() {
+        if (!confirm('모든 진도를 초기화할까요? (이미 완료한 이야기도 다시 풀어야 해요)')) return;
+        setProgress({});
+        saveProgress({});
+        sfx.click();
+      }
+
+      if (!player) return <StartScreen onStart={onStart} />;
+      if (!modulesConfig) {
+        return <div style={{ textAlign: 'center', padding: 60, color: '#6b7280' }}>불러오는 중…</div>;
+      }
+      if (currentModule) {
+        return <PlotOrderGame module={currentModule} player={player} onComplete={onComplete} onBack={onBack} />;
+      }
+      return (
+        <ModuleMap
+          player={player}
+          modules={modules}
+          progress={progress}
+          onSelect={onSelect}
+          onReset={onReset}
+        />
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

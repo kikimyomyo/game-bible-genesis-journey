@@ -1,0 +1,11 @@
+{
+  "title": "창세기 이야기 여행",
+  "description": "창세기의 네 족장 이야기를 순서대로 맞춰봐요",
+  "unlockMode": "linear",
+  "modules": [
+    { "id": "abraham", "kind": "character", "path": "data/characters/abraham.json" },
+    { "id": "isaac",   "kind": "character", "path": "data/characters/isaac.json" },
+    { "id": "jacob",   "kind": "character", "path": "data/characters/jacob.json" },
+    { "id": "joseph",  "kind": "character", "path": "data/characters/joseph.json" }
+  ]
+}
