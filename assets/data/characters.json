@@ -1,4 +1,28 @@
 {
+  "primeval": {
+    "title": "원역사",
+    "icon": "🌍",
+    "color": "#8b5cf6",
+    "description": "태초와 시작의 이야기"
+  },
+  "adam": {
+    "title": "아담과 하와",
+    "icon": "🌳",
+    "color": "#22c55e",
+    "description": "첫 사람 · 첫 선택"
+  },
+  "cain": {
+    "title": "가인과 아벨",
+    "icon": "🔥",
+    "color": "#dc2626",
+    "description": "형과 동생"
+  },
+  "noah": {
+    "title": "노아",
+    "icon": "🌈",
+    "color": "#0ea5e9",
+    "description": "방주를 만든 사람"
+  },
   "abraham": {
     "title": "아브라함",
     "icon": "👴",

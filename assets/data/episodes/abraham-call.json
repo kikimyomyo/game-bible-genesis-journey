@@ -4,7 +4,7 @@
   "character": "abraham",
   "title": "아브라함의 부르심",
   "icon": "🚶",
-  "requires": [],
+  "requires": ["babel"],
   "intro": "아브라함이 어떻게 가나안 땅으로 떠났는지 순서대로 맞춰봐요!",
   "scenes": [
     {
