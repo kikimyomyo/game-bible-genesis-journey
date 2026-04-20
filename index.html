@@ -196,6 +196,7 @@
       const [checked, setChecked] = useState(false);
       const [hintsUsed, setHintsUsed] = useState(0);
       const [showEpilogue, setShowEpilogue] = useState(false);
+      const [showRefs, setShowRefs] = useState(false); // 성경 구절 힌트 (기본 숨김)
       const listRef = useRef(null);
       const sortableRef = useRef(null);
       const [startTime] = useState(() => Date.now());
@@ -307,6 +308,21 @@
               <button onClick={onBack} style={{ padding: '6px 14px', background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 18, fontSize: '0.88em', cursor: 'pointer', fontFamily: 'inherit' }}>← 목록으로</button>
             </div>
             <p style={{ marginTop: 10, color: '#4b5563' }}>{info.intro}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+              <button
+                onClick={() => { sfx.click(); setShowRefs((v) => !v); }}
+                style={{
+                  padding: '6px 12px', borderRadius: 18, border: '1px solid #c7d2fe',
+                  background: showRefs ? '#eef2ff' : 'white', color: '#4338ca',
+                  fontSize: '0.82em', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                📖 성경 구절 {showRefs ? '숨기기' : '보기'}
+              </button>
+              <span style={{ fontSize: '0.78em', color: '#9ca3af' }}>
+                {showRefs ? '힌트 ON (창세기 장/절 표시)' : '힌트 OFF (먼저 맞춰봐요)'}
+              </span>
+            </div>
             {checked && (
               <div style={{ marginTop: 12, padding: 12, borderRadius: 12, fontWeight: 700,
                 background: allCorrect ? '#d1fae5' : correctCount >= order.length - 1 ? '#fef3c7' : '#fee2e2' }}>
@@ -315,7 +331,15 @@
             )}
           </div>
 
-          <div ref={listRef} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div
+            ref={listRef}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : `repeat(${order.length}, 1fr)`,
+              gap: isMobile ? 10 : 12,
+              alignItems: 'stretch',
+            }}
+          >
             {order.map((scene, i) => {
               const ok = checked && scene._idx === i;
               const wrong = checked && scene._idx !== i;
@@ -326,35 +350,46 @@
                   style={{
                     background: ok ? '#d1fae5' : wrong ? '#fee2e2' : 'white',
                     border: '3px solid ' + (ok ? '#10b981' : wrong ? '#ef4444' : '#e5e7eb'),
-                    borderRadius: 14, padding: isMobile ? 12 : 16,
+                    borderRadius: 16, padding: isMobile ? 12 : 14,
                     cursor: checked ? 'default' : 'grab', userSelect: 'none',
-                    boxShadow: '0 3px 10px rgba(0,0,0,0.04)',
-                    display: 'flex', alignItems: 'center', gap: 12,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    textAlign: 'center', minHeight: isMobile ? 190 : 240,
+                    position: 'relative',
                   }}
                 >
+                  {/* 슬롯 번호 배지 */}
                   <div style={{
-                    flexShrink: 0, width: 38, height: 38, borderRadius: '50%',
-                    background: ok ? '#10b981' : wrong ? '#ef4444' : '#e0e7ff',
-                    color: ok || wrong ? 'white' : '#4338ca',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '1.1em', fontWeight: 800,
+                    position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)',
+                    width: 36, height: 36, borderRadius: '50%',
+                    background: ok ? '#10b981' : wrong ? '#ef4444' : (info.color || '#6366f1'),
+                    color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '0.95em', fontWeight: 800, boxShadow: '0 3px 8px rgba(0,0,0,0.15)',
                   }}>{i + 1}</div>
-                  <div style={{ flexShrink: 0, fontSize: '1.8em' }}>{scene.emoji}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: isMobile ? '0.98em' : '1.08em', fontWeight: 700 }}>{scene.title}</div>
-                    {scene.quote && (
-                      <div style={{ fontSize: isMobile ? '0.84em' : '0.92em', color: '#6b7280', marginTop: 2, lineHeight: 1.4 }}>
-                        "{scene.quote}"
-                      </div>
-                    )}
-                    {scene.ref && (
-                      <div style={{ fontSize: '0.72em', color: '#9ca3af', marginTop: 2 }}>{scene.ref}</div>
-                    )}
+
+                  <div style={{ fontSize: isMobile ? '2.4em' : '2.8em', lineHeight: 1, marginTop: 14, marginBottom: 8 }}>
+                    {scene.emoji}
                   </div>
+                  <div style={{ fontSize: isMobile ? '0.92em' : '1em', fontWeight: 800, marginBottom: 6, color: '#1f2937' }}>
+                    {scene.title}
+                  </div>
+                  {scene.quote && (
+                    <div style={{ fontSize: isMobile ? '0.78em' : '0.82em', color: '#6b7280', lineHeight: 1.4, marginBottom: 8, flex: 1 }}>
+                      "{scene.quote}"
+                    </div>
+                  )}
+                  {showRefs && scene.ref && (
+                    <div style={{ fontSize: '0.72em', color: '#4338ca', background: '#eef2ff', padding: '3px 10px', borderRadius: 10, marginBottom: 8 }}>
+                      {scene.ref}
+                    </div>
+                  )}
                   <button
                     onClick={(e) => { e.stopPropagation(); speakScene(scene); }}
                     onTouchStart={(e) => e.stopPropagation()}
-                    style={{ flexShrink: 0, width: 34, height: 34, borderRadius: '50%', background: '#eef2ff', border: 'none', cursor: 'pointer', fontSize: 14 }}
+                    style={{
+                      marginTop: 'auto', width: 36, height: 36, borderRadius: '50%',
+                      background: '#eef2ff', border: 'none', cursor: 'pointer', fontSize: 14,
+                    }}
                     title="이 장면 듣기"
                   >🔊</button>
                 </div>
