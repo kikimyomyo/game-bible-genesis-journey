@@ -429,26 +429,25 @@
             )}
           </div>
 
-          {/* 상단: 순서 슬롯 */}
-          <div style={{ background: 'rgba(255,255,255,0.6)', border: '2px dashed #c7d2fe', borderRadius: 18, padding: isMobile ? 12 : 16, marginBottom: 14 }}>
+          {/* 상단: 순서 슬롯 — 항상 한 줄 (1-2-3-4) */}
+          <div style={{ background: 'rgba(255,255,255,0.6)', border: '2px dashed #c7d2fe', borderRadius: 18, padding: isMobile ? 10 : 14, marginBottom: 14 }}>
             <div style={{ fontSize: '0.82em', fontWeight: 700, color: '#4338ca', marginBottom: 10, textAlign: 'center' }}>
-              ⬇ 순서대로 놓을 자리
+              ⬇ 순서대로 놓을 자리 (왼쪽 → 오른쪽)
             </div>
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : `repeat(${scenesWithIdx.length}, 1fr)`,
-                gap: isMobile ? 12 : 14,
+                gridTemplateColumns: `repeat(${scenesWithIdx.length}, 1fr)`,
+                gap: isMobile ? 6 : 10,
                 alignItems: 'stretch',
               }}
             >
               {state.slots.map((scene, i) => (
-                <SlotCard
+                <MiniSlot
                   key={`slot-${i}`}
                   scene={scene}
                   slotIndex={i}
                   checked={checked}
-                  showRefs={showRefs}
                   isMobile={isMobile}
                   color={info.color}
                   selectedKey={selectedKey}
@@ -456,15 +455,24 @@
                 />
               ))}
             </div>
+            {/* 화살표 연결선 — 흐름 강조 */}
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${scenesWithIdx.length * 2 - 1}, 1fr)`, alignItems: 'center', marginTop: 4, opacity: 0.4 }}>
+              {Array.from({ length: scenesWithIdx.length * 2 - 1 }).map((_, i) => (
+                <div key={i} style={{ textAlign: 'center', color: '#6366f1', fontSize: '0.7em' }}>
+                  {i % 2 === 0 ? '' : '→'}
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* 하단: 카드 풀 */}
+          {/* 하단: 카드 풀 (전체 내용) */}
           <div
             style={{ background: 'rgba(254, 243, 199, 0.6)', border: '2px solid #fde68a', borderRadius: 18, padding: isMobile ? 12 : 16 }}
             onClick={(e) => { if (e.target === e.currentTarget) handlePoolAreaTap(); }}
           >
             <div style={{ fontSize: '0.82em', fontWeight: 700, color: '#92400e', marginBottom: 10, textAlign: 'center' }}>
-              🃏 카드 풀 {selectedKey !== null && '— 여기를 탭하면 선택 해제'}
+              🃏 카드 풀 — 탭해서 선택 → 위쪽 자리 탭해서 놓기
+              {selectedKey !== null && ' · (여기 탭하면 선택 해제)'}
             </div>
             {state.pool.length > 0 ? (
               <div
@@ -520,6 +528,60 @@
               </>
             )}
           </div>
+        </div>
+      );
+    }
+
+    // 미니 슬롯: 상단 한 줄용 (번호 + 이모지만, 좁은 폰에서도 4개 한 줄)
+    function MiniSlot({ scene, slotIndex, checked, isMobile, color, selectedKey, onTap }) {
+      const isEmpty = !scene;
+      const isSelected = !isEmpty && selectedKey === scene._idx;
+      const ok = checked && !isEmpty && scene._idx === slotIndex;
+      const wrong = checked && !isEmpty && scene._idx !== slotIndex;
+
+      const tapHandlers = {
+        onClick: onTap,
+        onTouchEnd: (e) => { if (e.cancelable) e.preventDefault(); onTap(); },
+      };
+
+      const bg = ok ? '#d1fae5' : wrong ? '#fee2e2' : isSelected ? '#fef3c7' : isEmpty ? 'rgba(199,210,254,0.2)' : 'white';
+      const border = ok ? '#10b981' : wrong ? '#ef4444' : isSelected ? '#f59e0b' : isEmpty ? '#a5b4fc' : '#e5e7eb';
+
+      return (
+        <div
+          {...tapHandlers}
+          style={{
+            background: bg,
+            border: `${isEmpty ? '2px dashed' : '3px solid'} ${border}`,
+            borderRadius: 12,
+            padding: isMobile ? '18px 4px 8px' : '22px 8px 10px',
+            minHeight: isMobile ? 80 : 100,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            position: 'relative',
+            cursor: checked ? 'default' : 'pointer',
+            userSelect: 'none',
+            transition: 'all 0.15s',
+            boxShadow: isSelected ? '0 0 0 3px rgba(245,158,11,0.3)' : 'none',
+            transform: isSelected ? 'translateY(-3px)' : 'none',
+          }}
+        >
+          {/* 번호 배지 */}
+          <div style={{
+            position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
+            width: isMobile ? 28 : 32, height: isMobile ? 28 : 32, borderRadius: '50%',
+            background: ok ? '#10b981' : wrong ? '#ef4444' : (color || '#6366f1'),
+            color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: isMobile ? '0.8em' : '0.9em', fontWeight: 800,
+            boxShadow: '0 3px 8px rgba(0,0,0,0.15)',
+          }}>{slotIndex + 1}</div>
+
+          {isEmpty ? (
+            <div style={{ fontSize: isMobile ? '1.4em' : '1.6em', opacity: 0.45 }}>⬚</div>
+          ) : (
+            <div style={{ fontSize: isMobile ? '2em' : '2.4em', lineHeight: 1 }}>
+              {scene.emoji}
+            </div>
+          )}
         </div>
       );
     }
