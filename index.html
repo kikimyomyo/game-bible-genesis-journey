@@ -437,26 +437,42 @@
       }
 
       if (showEpilogue) {
-        // 퀴즈가 있고 아직 정답 안 맞춘 경우: 퀴즈 먼저
         const needQuiz = nextQuiz && !quizCorrect;
         return (
           <div style={{ maxWidth: 560, margin: '40px auto', padding: isMobile ? 20 : 30, background: 'white', borderRadius: 24, boxShadow: '0 20px 60px rgba(0,0,0,0.12)' }}>
             <div style={{ fontSize: '4em', textAlign: 'center' }}>{info.icon}</div>
             <h2 style={{ fontSize: '1.6em', fontWeight: 800, textAlign: 'center', marginBottom: 14 }}>{info.title} 이야기를 마쳤어요! 🎉</h2>
 
-            {needQuiz ? (
-              <div>
-                <div style={{ padding: 16, background: '#eef2ff', borderRadius: 14, marginBottom: 14, textAlign: 'center' }}>
-                  <div style={{ fontSize: '0.95em', fontWeight: 700, color: '#4338ca', marginBottom: 4 }}>🧠 깜짝 퀴즈!</div>
-                  <div style={{ fontSize: '1.15em', fontWeight: 800, color: '#1e293b' }}>다음 이야기는 무엇일까요?</div>
+            {/* 교훈 — 항상 먼저 보이게 */}
+            <div style={{ padding: 18, background: '#fef9c3', borderRadius: 14, lineHeight: 1.7, color: '#713f12', marginBottom: 18, position: 'relative' }}>
+              <button
+                onClick={speakEpilogue}
+                onTouchEnd={(e) => { if (e.cancelable) e.preventDefault(); speakEpilogue(); }}
+                style={{
+                  position: 'absolute', top: 10, right: 10,
+                  width: 36, height: 36, borderRadius: '50%',
+                  background: '#fde68a', border: 'none', cursor: 'pointer',
+                  fontSize: 14, boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+                }}
+                title="교훈 다시 듣기"
+              >🔊</button>
+              💡 {info.epilogue}
+            </div>
+
+            {/* 깜짝 퀴즈 — 교훈 아래 */}
+            {nextQuiz && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ padding: 14, background: '#eef2ff', borderRadius: 14, marginBottom: 12, textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.9em', fontWeight: 700, color: '#4338ca', marginBottom: 4 }}>🧠 깜짝 퀴즈!</div>
+                  <div style={{ fontSize: '1.1em', fontWeight: 800, color: '#1e293b' }}>다음 이야기는 무엇일까요?</div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 10, marginBottom: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 10, marginBottom: 12 }}>
                   {nextQuiz.options.map((opt) => {
                     const chosen = quizChosen === opt;
-                    const isCorrect = opt === nextQuiz.correct;
-                    const showResult = chosen;
-                    const bg = !showResult ? 'white' : isCorrect ? '#d1fae5' : '#fee2e2';
-                    const border = !showResult ? '#c7d2fe' : isCorrect ? '#10b981' : '#ef4444';
+                    const isCorrectOpt = opt === nextQuiz.correct;
+                    const showResult = chosen || (quizCorrect && isCorrectOpt);
+                    const bg = !showResult ? 'white' : isCorrectOpt ? '#d1fae5' : '#fee2e2';
+                    const border = !showResult ? '#c7d2fe' : isCorrectOpt ? '#10b981' : '#ef4444';
                     return (
                       <button
                         key={opt}
@@ -475,7 +491,7 @@
                         style={{
                           padding: '14px 12px', borderRadius: 12,
                           background: bg, border: `2px solid ${border}`,
-                          fontSize: '0.98em', fontWeight: 700, cursor: 'pointer',
+                          fontSize: '0.96em', fontWeight: 700, cursor: quizCorrect ? 'default' : 'pointer',
                           textAlign: 'left', fontFamily: 'inherit',
                           transition: 'all 0.2s',
                         }}
@@ -486,40 +502,40 @@
                   })}
                 </div>
                 {quizChosen && !quizCorrect && (
-                  <div style={{ padding: 12, background: '#fef3c7', borderRadius: 10, fontSize: '0.9em', color: '#92400e', textAlign: 'center', marginBottom: 12 }}>
-                    ❌ 다시 생각해봐요. 이야기의 흐름을 떠올려보세요!
-                    <br />
+                  <div style={{ padding: 10, background: '#fef3c7', borderRadius: 10, fontSize: '0.88em', color: '#92400e', textAlign: 'center' }}>
+                    ❌ 다시 생각해봐요.
                     <button
                       onClick={() => { sfx.click(); setQuizChosen(null); }}
-                      style={{ marginTop: 8, padding: '6px 14px', borderRadius: 16, border: 'none', background: '#f59e0b', color: 'white', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+                      onTouchEnd={(e) => { if (e.cancelable) e.preventDefault(); sfx.click(); setQuizChosen(null); }}
+                      style={{ marginLeft: 8, padding: '4px 12px', borderRadius: 14, border: 'none', background: '#f59e0b', color: 'white', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.88em' }}
                     >다시 고르기</button>
                   </div>
                 )}
-              </div>
-            ) : (
-              <div style={{ padding: 18, background: '#fef9c3', borderRadius: 14, lineHeight: 1.7, color: '#713f12', marginBottom: 18, position: 'relative' }}>
-                <button
-                  onClick={speakEpilogue}
-                  onTouchEnd={(e) => { if (e.cancelable) e.preventDefault(); speakEpilogue(); }}
-                  style={{
-                    position: 'absolute', top: 10, right: 10,
-                    width: 36, height: 36, borderRadius: '50%',
-                    background: '#fde68a', border: 'none', cursor: 'pointer',
-                    fontSize: 14, boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
-                  }}
-                  title="교훈 다시 듣기"
-                >🔊</button>
-                💡 {info.epilogue}
+                {quizCorrect && (
+                  <div style={{ padding: 10, background: '#d1fae5', borderRadius: 10, fontSize: '0.9em', color: '#065f46', textAlign: 'center', fontWeight: 700 }}>
+                    ✅ 정답! 바로 이어지는 이야기예요.
+                  </div>
+                )}
               </div>
             )}
 
-            {!needQuiz && (
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <button onClick={finish} style={{ flex: 1, padding: '16px 20px', background: '#10b981', color: 'white', border: 'none', borderRadius: 14, fontSize: '1.05em', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  {info.next ? '다음 이야기로 →' : '✅ 여행 완주!'}
-                </button>
-              </div>
-            )}
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                onClick={finish}
+                disabled={needQuiz}
+                style={{
+                  flex: 1, padding: '16px 20px',
+                  background: needQuiz ? '#d1d5db' : '#10b981',
+                  color: 'white', border: 'none', borderRadius: 14,
+                  fontSize: '1.05em', fontWeight: 800,
+                  cursor: needQuiz ? 'not-allowed' : 'pointer',
+                  fontFamily: 'inherit',
+                }}
+                title={needQuiz ? '깜짝 퀴즈를 먼저 맞춰보세요' : ''}
+              >
+                {info.next ? (needQuiz ? '🔒 먼저 퀴즈를 맞춰요' : '다음 이야기로 →') : '✅ 여행 완주!'}
+              </button>
+            </div>
           </div>
         );
       }
