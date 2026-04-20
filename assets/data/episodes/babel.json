@@ -1,7 +1,7 @@
 {
   "id": "babel",
   "kind": "plot-order",
-  "character": "primeval",
+  "character": "babel",
   "title": "바벨탑",
   "icon": "🗼",
   "requires": ["noah-covenant"],

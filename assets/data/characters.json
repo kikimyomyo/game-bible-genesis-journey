@@ -1,9 +1,9 @@
 {
   "primeval": {
-    "title": "원역사",
+    "title": "창조",
     "icon": "🌍",
     "color": "#8b5cf6",
-    "description": "태초와 시작의 이야기"
+    "description": "태초 7일의 이야기"
   },
   "adam": {
     "title": "아담과 하와",
@@ -22,6 +22,12 @@
     "icon": "🌈",
     "color": "#0ea5e9",
     "description": "방주를 만든 사람"
+  },
+  "babel": {
+    "title": "바벨탑",
+    "icon": "🗼",
+    "color": "#a855f7",
+    "description": "흩어진 민족들"
   },
   "abraham": {
     "title": "아브라함",

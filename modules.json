@@ -10,7 +10,7 @@
     { "id": "cain-abel",         "character": "cain",     "path": "data/episodes/cain-abel.json" },
     { "id": "noah-ark",          "character": "noah",     "path": "data/episodes/noah-ark.json" },
     { "id": "noah-covenant",     "character": "noah",     "path": "data/episodes/noah-covenant.json" },
-    { "id": "babel",             "character": "primeval", "path": "data/episodes/babel.json" },
+    { "id": "babel",             "character": "babel",    "path": "data/episodes/babel.json" },
     { "id": "abraham-call",      "character": "abraham",  "path": "data/episodes/abraham-call.json" },
     { "id": "abraham-promise",   "character": "abraham",  "path": "data/episodes/abraham-promise.json" },
     { "id": "abraham-sacrifice", "character": "abraham",  "path": "data/episodes/abraham-sacrifice.json" },
