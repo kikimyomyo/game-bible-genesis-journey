@@ -379,7 +379,8 @@
       function speakEpilogue() {
         try {
           window.speechSynthesis.cancel();
-          const u = new SpeechSynthesisUtterance(`${info.character} 이야기를 마쳤어요. ${info.epilogue}`);
+          // 한글 제목 사용 (info.character는 영어 ID이므로 피함)
+          const u = new SpeechSynthesisUtterance(`${info.title} 이야기를 마쳤어요. ${info.epilogue}`);
           u.lang = 'ko-KR';
           u.rate = 1.0;
           const v = pickVoice && pickVoice('ko-KR');
@@ -422,7 +423,7 @@
         return (
           <div style={{ maxWidth: 560, margin: '40px auto', padding: isMobile ? 20 : 30, background: 'white', borderRadius: 24, boxShadow: '0 20px 60px rgba(0,0,0,0.12)' }}>
             <div style={{ fontSize: '4em', textAlign: 'center' }}>{info.icon}</div>
-            <h2 style={{ fontSize: '1.6em', fontWeight: 800, textAlign: 'center', marginBottom: 14 }}>{info.character} 이야기를 마쳤어요! 🎉</h2>
+            <h2 style={{ fontSize: '1.6em', fontWeight: 800, textAlign: 'center', marginBottom: 14 }}>{info.title} 이야기를 마쳤어요! 🎉</h2>
             <div style={{ padding: 18, background: '#fef9c3', borderRadius: 14, lineHeight: 1.7, color: '#713f12', marginBottom: 18, position: 'relative' }}>
               <button
                 onClick={speakEpilogue}
