@@ -193,86 +193,111 @@
         [info.scenes]
       );
 
-      // 슬롯 아이템: {key, type: 'card'|'placeholder', scene?, placeholderIdx?}
-      // 슬롯 4개(초기 모두 placeholder), 풀 4개(초기 모두 card 섞임)
+      // slots: 고정 길이 배열, 각 요소 null(빈) 또는 scene
+      // pool: 가변 길이 배열 (초기 모든 카드가 섞여서)
       function freshState() {
-        const placeholders = scenesWithIdx.map((_, i) => ({ key: `p${i}`, type: 'placeholder', placeholderIdx: i }));
-        const cards = scenesWithIdx.map((s, i) => ({ key: `c${i}`, type: 'card', scene: s }));
-        // 카드 풀을 섞음
-        const shuffledCards = [...cards];
-        for (let i = shuffledCards.length - 1; i > 0; i--) {
+        const shuffled = [...scenesWithIdx];
+        for (let i = shuffled.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
-          [shuffledCards[i], shuffledCards[j]] = [shuffledCards[j], shuffledCards[i]];
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
         }
-        return { slots: placeholders, pool: shuffledCards };
+        return {
+          slots: Array(scenesWithIdx.length).fill(null),
+          pool: shuffled,
+        };
       }
 
       const [state, setState] = useState(freshState);
+      const [selectedKey, setSelectedKey] = useState(null);  // 선택된 scene의 _idx
       const [checked, setChecked] = useState(false);
       const [hintsUsed, setHintsUsed] = useState(0);
       const [showEpilogue, setShowEpilogue] = useState(false);
       const [showRefs, setShowRefs] = useState(false);
-      const slotsRef = useRef(null);
-      const poolRef = useRef(null);
-      const sortableSlotsRef = useRef(null);
-      const sortablePoolRef = useRef(null);
       const [startTime] = useState(() => Date.now());
 
-      // 모든 아이템 key → item 맵
-      const allItemsMap = useMemo(() => {
-        const m = new Map();
-        [...state.slots, ...state.pool].forEach((it) => m.set(it.key, it));
-        return m;
-      }, [state]);
-
-      // SortableJS 2개 그룹 설정
-      useEffect(() => {
-        if (checked || showEpilogue) {
-          if (sortableSlotsRef.current) { sortableSlotsRef.current.destroy(); sortableSlotsRef.current = null; }
-          if (sortablePoolRef.current) { sortablePoolRef.current.destroy(); sortablePoolRef.current = null; }
-          return;
-        }
-        if (!slotsRef.current || !poolRef.current || !window.Sortable) return;
-
-        const syncFromDOM = () => {
-          const slotKeys = Array.from(slotsRef.current.children).map((c) => c.dataset.key);
-          const poolKeys = Array.from(poolRef.current.children).map((c) => c.dataset.key);
-          setState((prev) => {
-            const map = new Map();
-            [...prev.slots, ...prev.pool].forEach((it) => map.set(it.key, it));
-            return {
-              slots: slotKeys.map((k) => map.get(k)).filter(Boolean),
-              pool: poolKeys.map((k) => map.get(k)).filter(Boolean),
-            };
-          });
-          sfx.click();
-        };
-
-        sortableSlotsRef.current = window.Sortable.create(slotsRef.current, {
-          group: { name: 'plot', pull: true, put: true },
-          animation: 220, delay: 80, delayOnTouchOnly: true,
-          ghostClass: 'scene-ghost', chosenClass: 'scene-chosen',
-          onChoose: () => sfx.tap(),
-          onEnd: syncFromDOM,
-        });
-        sortablePoolRef.current = window.Sortable.create(poolRef.current, {
-          group: { name: 'plot', pull: true, put: true },
-          animation: 220, delay: 80, delayOnTouchOnly: true,
-          ghostClass: 'scene-ghost', chosenClass: 'scene-chosen',
-          onChoose: () => sfx.tap(),
-          onEnd: syncFromDOM,
-        });
-        return () => {
-          if (sortableSlotsRef.current) { sortableSlotsRef.current.destroy(); sortableSlotsRef.current = null; }
-          if (sortablePoolRef.current) { sortablePoolRef.current.destroy(); sortablePoolRef.current = null; }
-        };
-      }, [checked, showEpilogue]);
-
-      // 정답 판정 — 슬롯의 각 위치에 카드가 있고 _idx가 일치하는지
-      const filledCount = state.slots.filter((it) => it.type === 'card').length;
-      const correctCount = state.slots.reduce((acc, it, i) => acc + (it.type === 'card' && it.scene._idx === i ? 1 : 0), 0);
+      const filledCount = state.slots.filter(Boolean).length;
+      const correctCount = state.slots.reduce((acc, s, i) => acc + (s && s._idx === i ? 1 : 0), 0);
       const allFilled = filledCount === scenesWithIdx.length;
       const allCorrect = allFilled && correctCount === scenesWithIdx.length;
+
+      // 카드 선택 (풀에서든 슬롯에서든)
+      function handleCardTap(scene) {
+        if (checked) return;
+        sfx.tap();
+        if (selectedKey === scene._idx) {
+          setSelectedKey(null);
+        } else {
+          setSelectedKey(scene._idx);
+        }
+      }
+
+      // 슬롯 자리 탭 (placeholder 또는 카드 위)
+      function handleSlotTap(slotIdx) {
+        if (checked) return;
+        const cur = state.slots[slotIdx];
+
+        // 선택된 카드가 없으면 이 슬롯의 카드 선택 또는 아무것도 안 함
+        if (selectedKey === null) {
+          if (cur) {
+            sfx.tap();
+            setSelectedKey(cur._idx);
+          }
+          return;
+        }
+
+        // 선택된 카드를 이 슬롯으로 이동
+        sfx.click();
+        setState((prev) => {
+          const slots = [...prev.slots];
+          const pool = [...prev.pool];
+          const selectedIdx = selectedKey;
+
+          // 선택 카드가 어디에 있는지
+          const fromSlot = slots.findIndex((s) => s && s._idx === selectedIdx);
+          const poolIdx = pool.findIndex((s) => s._idx === selectedIdx);
+
+          let card = null;
+          if (fromSlot >= 0) { card = slots[fromSlot]; slots[fromSlot] = null; }
+          else if (poolIdx >= 0) { card = pool[poolIdx]; pool.splice(poolIdx, 1); }
+
+          if (!card) return prev;
+
+          // 대상 슬롯에 기존 카드가 있으면
+          if (cur) {
+            if (fromSlot >= 0) {
+              // 슬롯 ↔ 슬롯 swap
+              slots[fromSlot] = cur;
+            } else {
+              // 풀 → 슬롯: 대상 카드 풀로
+              pool.push(cur);
+            }
+          }
+          slots[slotIdx] = card;
+          return { slots, pool };
+        });
+        setSelectedKey(null);
+      }
+
+      // 풀 영역 탭 → 선택 해제 또는 선택된 슬롯 카드를 풀로 돌려보냄
+      function handlePoolAreaTap() {
+        if (checked) return;
+        if (selectedKey !== null) {
+          // 만약 선택된 카드가 슬롯에 있으면 풀로 복귀
+          const fromSlot = state.slots.findIndex((s) => s && s._idx === selectedKey);
+          if (fromSlot >= 0) {
+            sfx.click();
+            setState((prev) => {
+              const slots = [...prev.slots];
+              const pool = [...prev.pool];
+              const card = slots[fromSlot];
+              slots[fromSlot] = null;
+              pool.push(card);
+              return { slots, pool };
+            });
+          }
+          setSelectedKey(null);
+        }
+      }
 
       function check() {
         if (!allFilled) return;
@@ -287,32 +312,28 @@
 
       function useHint() {
         if (checked) return;
-        // 틀리거나 비어있는 슬롯 찾기
-        const wrongSlotIdxs = state.slots.map((it, i) => {
-          if (it.type === 'placeholder') return i;
-          return it.scene._idx !== i ? i : -1;
+        // 틀리거나 빈 슬롯 찾기
+        const wrongIdxs = state.slots.map((s, i) => {
+          if (!s) return i;
+          return s._idx !== i ? i : -1;
         }).filter((i) => i >= 0);
-        if (!wrongSlotIdxs.length) return;
-        const targetPos = wrongSlotIdxs[Math.floor(Math.random() * wrongSlotIdxs.length)];
+        if (!wrongIdxs.length) return;
+        const targetPos = wrongIdxs[Math.floor(Math.random() * wrongIdxs.length)];
         const correctScene = scenesWithIdx[targetPos];
-        const correctKey = `c${correctScene._idx}`;
-
-        // 어디에 있는지 찾기
-        const slotIdx = state.slots.findIndex((it) => it.key === correctKey);
-        const poolIdx = state.pool.findIndex((it) => it.key === correctKey);
-
         setState((prev) => {
           const slots = [...prev.slots];
           const pool = [...prev.pool];
+          // correctScene 위치 찾기
+          const slotIdx = slots.findIndex((s) => s && s._idx === correctScene._idx);
+          const poolIdx = pool.findIndex((s) => s._idx === correctScene._idx);
+          const curAtTarget = slots[targetPos];
           if (slotIdx >= 0) {
-            // 슬롯 간 swap (targetPos와 slotIdx)
-            [slots[targetPos], slots[slotIdx]] = [slots[slotIdx], slots[targetPos]];
+            slots[slotIdx] = curAtTarget;  // 스왑
           } else if (poolIdx >= 0) {
-            // 풀에서 슬롯으로 — 타겟 슬롯의 기존 아이템은 풀로
-            const fromSlot = slots[targetPos];
-            slots[targetPos] = pool[poolIdx];
-            pool[poolIdx] = fromSlot;
+            pool.splice(poolIdx, 1);
+            if (curAtTarget) pool.push(curAtTarget);
           }
+          slots[targetPos] = correctScene;
           return { slots, pool };
         });
         setHintsUsed((h) => h + 1);
@@ -321,6 +342,7 @@
 
       function reshuffle() {
         sfx.click();
+        setSelectedKey(null);
         setState(freshState());
         setChecked(false);
       }
@@ -400,6 +422,11 @@
                 {allCorrect ? '🎉 전부 맞았어요!' : `✏️ ${correctCount}/${scenesWithIdx.length} 맞음 — 빨간 자리를 다시 옮겨보세요.`}
               </div>
             )}
+            {!checked && (
+              <div style={{ marginTop: 10, padding: '8px 12px', background: '#eef2ff', borderRadius: 10, fontSize: '0.84em', color: '#4338ca' }}>
+                👉 <b>카드를 탭</b>해서 선택 → <b>빈 자리를 탭</b>해서 놓아요. 슬롯 카드를 다시 탭하면 풀로 돌아가요.
+              </div>
+            )}
           </div>
 
           {/* 상단: 순서 슬롯 */}
@@ -408,57 +435,66 @@
               ⬇ 순서대로 놓을 자리
             </div>
             <div
-              ref={slotsRef}
               style={{
                 display: 'grid',
                 gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : `repeat(${scenesWithIdx.length}, 1fr)`,
-                gap: isMobile ? 10 : 12,
+                gap: isMobile ? 12 : 14,
                 alignItems: 'stretch',
-                minHeight: 100,
               }}
             >
-              {state.slots.map((it, i) => (
+              {state.slots.map((scene, i) => (
                 <SlotCard
-                  key={it.key}
-                  item={it}
+                  key={`slot-${i}`}
+                  scene={scene}
                   slotIndex={i}
                   checked={checked}
                   showRefs={showRefs}
                   isMobile={isMobile}
                   color={info.color}
+                  selectedKey={selectedKey}
+                  onTap={() => handleSlotTap(i)}
                 />
               ))}
             </div>
           </div>
 
           {/* 하단: 카드 풀 */}
-          <div style={{ background: 'rgba(254, 243, 199, 0.6)', border: '2px solid #fde68a', borderRadius: 18, padding: isMobile ? 12 : 16 }}>
+          <div
+            style={{ background: 'rgba(254, 243, 199, 0.6)', border: '2px solid #fde68a', borderRadius: 18, padding: isMobile ? 12 : 16 }}
+            onClick={(e) => { if (e.target === e.currentTarget) handlePoolAreaTap(); }}
+          >
             <div style={{ fontSize: '0.82em', fontWeight: 700, color: '#92400e', marginBottom: 10, textAlign: 'center' }}>
-              🃏 카드 풀 — 위 자리로 끌어 놓으세요
+              🃏 카드 풀 {selectedKey !== null && '— 여기를 탭하면 선택 해제'}
             </div>
-            <div
-              ref={poolRef}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : `repeat(${scenesWithIdx.length}, 1fr)`,
-                gap: isMobile ? 10 : 12,
-                alignItems: 'stretch',
-                minHeight: 100,
-              }}
-            >
-              {state.pool.map((it) => (
-                <SlotCard
-                  key={it.key}
-                  item={it}
-                  slotIndex={-1}
-                  checked={checked}
-                  showRefs={showRefs}
-                  isMobile={isMobile}
-                  color={info.color}
-                  inPool
-                />
-              ))}
-            </div>
+            {state.pool.length > 0 ? (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : `repeat(${scenesWithIdx.length}, 1fr)`,
+                  gap: isMobile ? 10 : 12,
+                  alignItems: 'stretch',
+                }}
+              >
+                {state.pool.map((scene) => (
+                  <SlotCard
+                    key={`pool-${scene._idx}`}
+                    scene={scene}
+                    slotIndex={-1}
+                    checked={checked}
+                    showRefs={showRefs}
+                    isMobile={isMobile}
+                    color={info.color}
+                    selectedKey={selectedKey}
+                    inPool
+                    onTap={() => handleCardTap(scene)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: 20, color: '#92400e', fontSize: '0.9em' }}>
+                ✨ 모든 카드가 자리에 있어요!
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginTop: 18 }}>
@@ -488,31 +524,32 @@
       );
     }
 
-    // 카드/플레이스홀더 공용 컴포넌트
-    function SlotCard({ item, slotIndex, checked, showRefs, isMobile, color, inPool }) {
-      const isPlaceholder = item.type === 'placeholder';
-      const scene = item.scene;
-      const ok = checked && !isPlaceholder && !inPool && scene._idx === slotIndex;
-      const wrong = checked && !isPlaceholder && !inPool && scene._idx !== slotIndex;
+    // 카드/빈자리 공용 컴포넌트 (scene=null이면 placeholder)
+    function SlotCard({ scene, slotIndex, checked, showRefs, isMobile, color, inPool, selectedKey, onTap }) {
+      const isEmpty = !scene;
+      const isSelected = !isEmpty && selectedKey === scene._idx;
+      const ok = checked && !isEmpty && !inPool && scene._idx === slotIndex;
+      const wrong = checked && !isEmpty && !inPool && scene._idx !== slotIndex;
 
-      if (isPlaceholder) {
-        // 슬롯의 빈 자리: 번호 배지 + 점선 박스
-        // 풀의 빈 자리: 그냥 회색 박스
+      if (isEmpty) {
+        // 빈 슬롯
         return (
           <div
-            data-key={item.key}
+            onClick={onTap}
             style={{
-              background: inPool ? 'rgba(229,231,235,0.4)' : 'rgba(199,210,254,0.15)',
-              border: '2px dashed ' + (inPool ? '#d1d5db' : '#a5b4fc'),
+              background: 'rgba(199,210,254,0.15)',
+              border: '2px dashed #a5b4fc',
               borderRadius: 16, padding: isMobile ? 12 : 14,
               minHeight: isMobile ? 170 : 220,
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
               position: 'relative',
-              color: '#9ca3af',
-              cursor: 'grab', userSelect: 'none',
+              color: '#6366f1',
+              cursor: checked ? 'default' : 'pointer',
+              userSelect: 'none',
+              transition: 'all 0.15s',
             }}
           >
-            {!inPool && slotIndex >= 0 && (
+            {slotIndex >= 0 && (
               <div style={{
                 position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)',
                 width: 36, height: 36, borderRadius: '50%',
@@ -521,9 +558,9 @@
                 fontSize: '0.95em', fontWeight: 800, boxShadow: '0 3px 8px rgba(0,0,0,0.15)',
               }}>{slotIndex + 1}</div>
             )}
-            <div style={{ fontSize: isMobile ? '1.3em' : '1.5em', opacity: 0.5 }}>⬚</div>
-            <div style={{ fontSize: '0.76em', marginTop: 6 }}>
-              {inPool ? '빈 자리' : `${slotIndex + 1}번 자리`}
+            <div style={{ fontSize: isMobile ? '1.8em' : '2em', opacity: 0.45, marginTop: 10 }}>⬚</div>
+            <div style={{ fontSize: '0.8em', marginTop: 6, fontWeight: 700 }}>
+              {slotIndex + 1}번 자리
             </div>
           </div>
         );
@@ -531,19 +568,20 @@
 
       return (
         <div
-          data-key={item.key}
+          onClick={onTap}
           style={{
-            background: ok ? '#d1fae5' : wrong ? '#fee2e2' : 'white',
-            border: '3px solid ' + (ok ? '#10b981' : wrong ? '#ef4444' : '#e5e7eb'),
+            background: ok ? '#d1fae5' : wrong ? '#fee2e2' : isSelected ? '#fef3c7' : 'white',
+            border: '3px solid ' + (ok ? '#10b981' : wrong ? '#ef4444' : isSelected ? '#f59e0b' : '#e5e7eb'),
             borderRadius: 16, padding: isMobile ? 12 : 14,
-            cursor: checked ? 'default' : 'grab', userSelect: 'none',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
+            cursor: checked ? 'default' : 'pointer', userSelect: 'none',
+            boxShadow: isSelected ? '0 0 0 4px rgba(245,158,11,0.25), 0 6px 16px rgba(245,158,11,0.25)' : '0 4px 12px rgba(0,0,0,0.06)',
             display: 'flex', flexDirection: 'column', alignItems: 'center',
             textAlign: 'center', minHeight: isMobile ? 190 : 240,
             position: 'relative',
+            transition: 'all 0.15s',
+            transform: isSelected ? 'translateY(-3px)' : 'none',
           }}
         >
-          {/* 슬롯에 놓였을 때만 번호 배지 표시 */}
           {!inPool && slotIndex >= 0 && (
             <div style={{
               position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)',
