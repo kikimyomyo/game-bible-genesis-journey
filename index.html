@@ -259,6 +259,7 @@
       const [hintsUsed, setHintsUsed] = useState(0);
       const [showEpilogue, setShowEpilogue] = useState(false);
       const [showRefs, setShowRefs] = useState(false);
+      const [zoomedScene, setZoomedScene] = useState(null);  // 확대 이미지
       const [startTime] = useState(() => Date.now());
 
       const filledCount = state.slots.filter(Boolean).length;
@@ -606,6 +607,7 @@
                   color={info.color}
                   selectedKey={selectedKey}
                   onTap={() => handleSlotTap(i)}
+                  onZoom={setZoomedScene}
                 />
               ))}
             </div>
@@ -649,6 +651,7 @@
                     selectedKey={selectedKey}
                     inPool
                     onTap={() => handleCardTap(scene)}
+                    onZoom={setZoomedScene}
                   />
                 ))}
               </div>
@@ -682,12 +685,40 @@
               </>
             )}
           </div>
+
+          {zoomedScene && (
+            <div
+              onClick={() => setZoomedScene(null)}
+              onTouchEnd={(e) => { if (e.cancelable) e.preventDefault(); setZoomedScene(null); }}
+              style={{
+                position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                zIndex: 1000, padding: 16, cursor: 'pointer',
+              }}
+            >
+              <img
+                src={zoomedScene.img}
+                alt={zoomedScene.title}
+                style={{
+                  maxWidth: '92vw', maxHeight: '80vh', objectFit: 'contain',
+                  borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+                }}
+              />
+              <div style={{ marginTop: 14, color: 'white', textAlign: 'center', maxWidth: '92vw' }}>
+                <div style={{ fontSize: '1.1em', fontWeight: 800, marginBottom: 4 }}>{zoomedScene.title}</div>
+                {zoomedScene.quote && (
+                  <div style={{ fontSize: '0.88em', opacity: 0.85, lineHeight: 1.4 }}>"{zoomedScene.quote}"</div>
+                )}
+                <div style={{ fontSize: '0.78em', marginTop: 10, opacity: 0.6 }}>화면을 탭하면 닫혀요</div>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
 
     // 미니 슬롯: 상단 한 줄용 (번호 + 이모지만, 좁은 폰에서도 4개 한 줄)
-    function MiniSlot({ scene, slotIndex, checked, isMobile, color, selectedKey, onTap }) {
+    function MiniSlot({ scene, slotIndex, checked, isMobile, color, selectedKey, onTap, onZoom }) {
       const isEmpty = !scene;
       const isSelected = !isEmpty && selectedKey === scene._idx;
       const ok = checked && !isEmpty && scene._idx === slotIndex;
@@ -732,15 +763,31 @@
           {isEmpty ? (
             <div style={{ fontSize: isMobile ? '1.4em' : '1.6em', opacity: 0.45 }}>⬚</div>
           ) : scene.img ? (
-            <img
-              src={scene.img}
-              alt={scene.title}
-              draggable={false}
-              style={{
-                width: '100%', maxHeight: isMobile ? 54 : 70, objectFit: 'cover',
-                borderRadius: 6, pointerEvents: 'none',
-              }}
-            />
+            <>
+              <img
+                src={scene.img}
+                alt={scene.title}
+                draggable={false}
+                style={{
+                  width: '100%', maxHeight: isMobile ? 54 : 70, objectFit: 'cover',
+                  borderRadius: 6, pointerEvents: 'none',
+                }}
+              />
+              {onZoom && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onZoom(scene); }}
+                  onTouchEnd={(e) => { e.stopPropagation(); if (e.cancelable) e.preventDefault(); onZoom(scene); }}
+                  style={{
+                    position: 'absolute', top: 4, right: 4,
+                    width: 22, height: 22, borderRadius: '50%',
+                    background: 'rgba(0,0,0,0.55)', color: 'white',
+                    border: 'none', cursor: 'pointer', fontSize: 11,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+                  }}
+                  title="이미지 크게 보기"
+                >🔍</button>
+              )}
+            </>
           ) : (
             <div style={{ fontSize: isMobile ? '2em' : '2.4em', lineHeight: 1 }}>
               {scene.emoji}
@@ -751,7 +798,7 @@
     }
 
     // 카드/빈자리 공용 컴포넌트 (scene=null이면 placeholder)
-    function SlotCard({ scene, slotIndex, checked, showRefs, isMobile, color, inPool, selectedKey, onTap }) {
+    function SlotCard({ scene, slotIndex, checked, showRefs, isMobile, color, inPool, selectedKey, onTap, onZoom }) {
       const isEmpty = !scene;
       const isSelected = !isEmpty && selectedKey === scene._idx;
       const ok = checked && !isEmpty && !inPool && scene._idx === slotIndex;
@@ -824,16 +871,32 @@
           )}
 
           {scene.img ? (
-            <img
-              src={scene.img}
-              alt={scene.title}
-              draggable={false}
-              style={{
-                width: '100%', maxHeight: isMobile ? 120 : 150, objectFit: 'cover',
-                borderRadius: 10, marginTop: (!inPool && slotIndex >= 0) ? 14 : 4, marginBottom: 8,
-                pointerEvents: 'none',
-              }}
-            />
+            <div style={{ position: 'relative', width: '100%', marginTop: (!inPool && slotIndex >= 0) ? 14 : 4, marginBottom: 8 }}>
+              <img
+                src={scene.img}
+                alt={scene.title}
+                draggable={false}
+                style={{
+                  width: '100%', maxHeight: isMobile ? 120 : 150, objectFit: 'cover',
+                  borderRadius: 10, pointerEvents: 'none', display: 'block',
+                }}
+              />
+              {onZoom && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onZoom(scene); }}
+                  onTouchEnd={(e) => { e.stopPropagation(); if (e.cancelable) e.preventDefault(); onZoom(scene); }}
+                  style={{
+                    position: 'absolute', top: 6, right: 6,
+                    width: 30, height: 30, borderRadius: '50%',
+                    background: 'rgba(0,0,0,0.6)', color: 'white',
+                    border: 'none', cursor: 'pointer', fontSize: 14,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+                  }}
+                  title="이미지 크게 보기"
+                >🔍</button>
+              )}
+            </div>
           ) : (
             <div style={{ fontSize: isMobile ? '2.4em' : '2.8em', lineHeight: 1, marginTop: (!inPool && slotIndex >= 0) ? 14 : 4, marginBottom: 8 }}>
               {scene.emoji}
