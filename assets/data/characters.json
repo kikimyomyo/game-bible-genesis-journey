@@ -1,0 +1,26 @@
+{
+  "abraham": {
+    "title": "아브라함",
+    "icon": "👴",
+    "color": "#f59e0b",
+    "description": "믿음의 조상"
+  },
+  "isaac": {
+    "title": "이삭",
+    "icon": "😄",
+    "color": "#10b981",
+    "description": "약속의 아들"
+  },
+  "jacob": {
+    "title": "야곱",
+    "icon": "🌙",
+    "color": "#6366f1",
+    "description": "이스라엘이 된 사람"
+  },
+  "joseph": {
+    "title": "요셉",
+    "icon": "🌾",
+    "color": "#ef4444",
+    "description": "꿈꾸는 자"
+  }
+}

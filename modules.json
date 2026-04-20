@@ -1,11 +1,21 @@
 {
   "title": "창세기 이야기 여행",
-  "description": "창세기의 네 족장 이야기를 순서대로 맞춰봐요",
+  "description": "아브라함부터 요셉까지, 13개 에피소드를 순서대로 경험해요",
   "unlockMode": "linear",
+  "charactersPath": "data/characters.json",
   "modules": [
-    { "id": "abraham", "kind": "character", "path": "data/characters/abraham.json" },
-    { "id": "isaac",   "kind": "character", "path": "data/characters/isaac.json" },
-    { "id": "jacob",   "kind": "character", "path": "data/characters/jacob.json" },
-    { "id": "joseph",  "kind": "character", "path": "data/characters/joseph.json" }
+    { "id": "abraham-call",      "character": "abraham", "path": "data/episodes/abraham-call.json" },
+    { "id": "abraham-promise",   "character": "abraham", "path": "data/episodes/abraham-promise.json" },
+    { "id": "abraham-sacrifice", "character": "abraham", "path": "data/episodes/abraham-sacrifice.json" },
+    { "id": "isaac-birth",       "character": "isaac",   "path": "data/episodes/isaac-birth.json" },
+    { "id": "isaac-marriage",    "character": "isaac",   "path": "data/episodes/isaac-marriage.json" },
+    { "id": "jacob-birthright",  "character": "jacob",   "path": "data/episodes/jacob-birthright.json" },
+    { "id": "jacob-ladder",      "character": "jacob",   "path": "data/episodes/jacob-ladder.json" },
+    { "id": "jacob-wrestling",   "character": "jacob",   "path": "data/episodes/jacob-wrestling.json" },
+    { "id": "jacob-reunion",     "character": "jacob",   "path": "data/episodes/jacob-reunion.json" },
+    { "id": "joseph-dream",      "character": "joseph",  "path": "data/episodes/joseph-dream.json" },
+    { "id": "joseph-sold",       "character": "joseph",  "path": "data/episodes/joseph-sold.json" },
+    { "id": "joseph-pharaoh",    "character": "joseph",  "path": "data/episodes/joseph-pharaoh.json" },
+    { "id": "joseph-forgive",    "character": "joseph",  "path": "data/episodes/joseph-forgive.json" }
   ]
 }

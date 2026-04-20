@@ -107,7 +107,7 @@
       );
     }
 
-    function ModuleMap({ player, modules, progress, onSelect, onReset }) {
+    function ModuleMap({ player, modules, characters, progress, onSelect, onReset }) {
       const isMobile = useIsMobile();
       const completed = Object.keys(progress).filter((k) => progress[k]?.completed);
 
@@ -116,63 +116,91 @@
         return mod.requires.every((req) => progress[req]?.completed);
       };
 
+      // 인물별로 그룹핑 (modules 순서 유지)
+      const grouped = useMemo(() => {
+        const map = new Map();
+        modules.forEach((mod) => {
+          const char = mod.character || mod.data?.character || 'unknown';
+          if (!map.has(char)) map.set(char, []);
+          map.get(char).push(mod);
+        });
+        return Array.from(map.entries()).map(([char, eps]) => ({
+          char,
+          meta: characters?.[char] || { title: char, icon: '📘', color: '#6366f1' },
+          episodes: eps,
+        }));
+      }, [modules, characters]);
+
       return (
-        <div style={{ maxWidth: 720, margin: '20px auto', padding: isMobile ? 14 : 24 }}>
+        <div style={{ maxWidth: 820, margin: '20px auto', padding: isMobile ? 14 : 24 }}>
           <div style={{ background: 'white', borderRadius: 20, padding: isMobile ? 18 : 24, boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
               <div>
                 <h1 style={{ fontSize: isMobile ? '1.3em' : '1.6em', fontWeight: 800 }}>📖 {player} 님, 안녕하세요!</h1>
-                <p style={{ color: '#6b7280', marginTop: 4 }}>완료: <b>{completed.length}</b> / {modules.length}</p>
+                <p style={{ color: '#6b7280', marginTop: 4 }}>완료: <b>{completed.length}</b> / {modules.length} 에피소드</p>
               </div>
               {completed.length > 0 && (
                 <button onClick={onReset} style={{ padding: '6px 14px', background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 18, fontSize: '0.88em', cursor: 'pointer', fontFamily: 'inherit' }}>진도 초기화</button>
               )}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 14, marginTop: 18 }}>
-              {modules.map((mod, idx) => {
-                const done = progress[mod.id]?.completed;
-                const unlocked = isUnlocked(mod);
-                const info = mod.data;
-                const bgColor = done ? '#d1fae5' : unlocked ? '#ffffff' : '#f3f4f6';
-                const borderColor = done ? '#10b981' : unlocked ? (info?.color || '#6366f1') : '#d1d5db';
-                return (
-                  <button
-                    key={mod.id}
-                    disabled={!unlocked}
-                    onClick={() => { sfx.tap(); onSelect(mod); }}
-                    style={{
-                      textAlign: 'left', padding: 18, borderRadius: 16,
-                      background: bgColor, border: `3px solid ${borderColor}`,
-                      cursor: unlocked ? 'pointer' : 'not-allowed',
-                      opacity: unlocked ? 1 : 0.55,
-                      transition: 'all 0.2s',
-                      fontFamily: 'inherit',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                      <div style={{ fontSize: '2.4em' }}>{info?.icon || '📘'}</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '0.76em', color: '#6b7280', fontWeight: 700 }}>
-                          {idx + 1}단계 {done ? '· ✅ 완료' : unlocked ? '· 🔓 해금' : '· 🔒 잠김'}
-                        </div>
-                        <div style={{ fontSize: '1.1em', fontWeight: 800 }}>
-                          {info?.title || mod.id}
-                        </div>
+            {grouped.map(({ char, meta, episodes }) => {
+              const charDone = episodes.filter((e) => progress[e.id]?.completed).length;
+              return (
+                <div key={char} style={{ marginTop: 22 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, padding: '8px 12px', background: meta.color + '15', borderLeft: `4px solid ${meta.color}`, borderRadius: 8 }}>
+                    <div style={{ fontSize: '1.8em' }}>{meta.icon}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '1.15em', fontWeight: 800, color: '#1f2937' }}>{meta.title}</div>
+                      <div style={{ fontSize: '0.82em', color: '#6b7280' }}>
+                        {meta.description} · {charDone}/{episodes.length} 완료
                       </div>
                     </div>
-                    <div style={{ fontSize: '0.88em', color: '#4b5563', lineHeight: 1.4 }}>
-                      {info?.intro || ''}
-                    </div>
-                    {!unlocked && mod.requires && mod.requires.length > 0 && (
-                      <div style={{ fontSize: '0.78em', color: '#9ca3af', marginTop: 6 }}>
-                        먼저 완료: {mod.requires.join(', ')}
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 10 }}>
+                    {episodes.map((mod) => {
+                      const done = progress[mod.id]?.completed;
+                      const unlocked = isUnlocked(mod);
+                      const info = mod.data;
+                      const bgColor = done ? '#d1fae5' : unlocked ? '#ffffff' : '#f3f4f6';
+                      const borderColor = done ? '#10b981' : unlocked ? meta.color : '#d1d5db';
+                      return (
+                        <button
+                          key={mod.id}
+                          disabled={!unlocked}
+                          onClick={() => { sfx.tap(); onSelect(mod); }}
+                          onTouchEnd={(e) => { if (unlocked && e.cancelable) { e.preventDefault(); sfx.tap(); onSelect(mod); } }}
+                          style={{
+                            textAlign: 'left', padding: 14, borderRadius: 14,
+                            background: bgColor, border: `2px solid ${borderColor}`,
+                            cursor: unlocked ? 'pointer' : 'not-allowed',
+                            opacity: unlocked ? 1 : 0.55,
+                            transition: 'all 0.2s',
+                            fontFamily: 'inherit',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ fontSize: '1.8em' }}>{info?.icon || '📘'}</div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: '0.72em', color: '#6b7280', fontWeight: 700 }}>
+                                {done ? '✅ 완료' : unlocked ? '🔓 해금' : '🔒 잠김'}
+                              </div>
+                              <div style={{ fontSize: '1em', fontWeight: 800 }}>
+                                {info?.title || mod.id}
+                              </div>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: '0.82em', color: '#4b5563', lineHeight: 1.4, marginTop: 6 }}>
+                            {info?.intro || ''}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
 
             {completed.length === modules.length && modules.length > 0 && (
               <div style={{ marginTop: 20, padding: 16, background: '#fef3c7', borderRadius: 14, textAlign: 'center' }}>
@@ -729,6 +757,7 @@
       const [player, setPlayer] = useState(() => localStorage.getItem(LS_KEY + ":player") || '');
       const [modulesConfig, setModulesConfig] = useState(null);
       const [modules, setModules] = useState([]);
+      const [characters, setCharacters] = useState({});
       const [currentModule, setCurrentModule] = useState(null);
       const [progress, setProgress] = useState(() => loadProgress());
 
@@ -738,10 +767,18 @@
             const cfgResp = await fetch('./modules.json');
             const cfg = await cfgResp.json();
             setModulesConfig(cfg);
+            // 인물 메타 로드 (있으면)
+            if (cfg.charactersPath) {
+              try {
+                const cr = await fetch('./assets/' + cfg.charactersPath);
+                const cdata = await cr.json();
+                setCharacters(cdata);
+              } catch (e) { console.warn('characters.json load failed', e); }
+            }
             const loaded = await Promise.all(cfg.modules.map(async (m) => {
               const r = await fetch('./assets/' + m.path);
               const data = await r.json();
-              return { id: m.id, kind: m.kind, path: m.path, data, requires: data.requires || [] };
+              return { id: m.id, kind: m.kind || data.kind, character: m.character || data.character, path: m.path, data, requires: data.requires || [] };
             }));
             setModules(loaded);
           } catch (e) {
@@ -798,12 +835,15 @@
         return <div style={{ textAlign: 'center', padding: 60, color: '#6b7280' }}>불러오는 중…</div>;
       }
       if (currentModule) {
-        return <PlotOrderGame module={currentModule} player={player} onComplete={onComplete} onBack={onBack} />;
+        const charMeta = characters[currentModule.character] || {};
+        const enrichedModule = { ...currentModule, data: { ...currentModule.data, color: currentModule.data.color || charMeta.color } };
+        return <PlotOrderGame module={enrichedModule} player={player} onComplete={onComplete} onBack={onBack} />;
       }
       return (
         <ModuleMap
           player={player}
           modules={modules}
+          characters={characters}
           progress={progress}
           onSelect={onSelect}
           onReset={onReset}

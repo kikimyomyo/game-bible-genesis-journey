@@ -1,4 +1,5 @@
 # _shared/ 에서 게임 assets/ 로 복사할 자원
 # 형식: <_shared 기준 src 경로>  <게임 assets/ 기준 dst 경로>
 
-content/bible/characters/*.json  data/characters/
+content/bible/episodes/*.json    data/episodes/
+content/bible/characters.json    data/characters.json

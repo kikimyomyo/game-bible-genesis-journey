@@ -1,11 +1,10 @@
 {
-  "id": "isaac",
+  "id": "isaac-birth",
   "kind": "plot-order",
+  "character": "isaac",
   "title": "이삭의 탄생",
-  "character": "이삭",
-  "icon": "😄",
-  "color": "#10b981",
-  "requires": ["abraham"],
+  "icon": "👶",
+  "requires": ["abraham-sacrifice"],
   "intro": "이삭이 어떻게 태어났을까요? 순서대로 맞춰봐요!",
   "scenes": [
     {
@@ -33,6 +32,6 @@
       "emoji": "👶"
     }
   ],
-  "epilogue": "하나님의 약속은 늦어지는 것처럼 보여도 꼭 이루어져요. 사라가 의심하며 웃었던 웃음이, 이삭이 태어나는 기쁨의 웃음으로 바뀌었지요! 이제 이삭의 아들 야곱의 이야기로 넘어가볼까요?",
-  "next": "jacob"
+  "epilogue": "하나님의 약속은 늦어지는 것처럼 보여도 꼭 이루어져요. 사라가 의심하며 웃었던 웃음이, 이삭이 태어나는 기쁨의 웃음으로 바뀌었지요! 이제 이삭이 어떻게 아내를 만났는지 알아볼까요?",
+  "next": "isaac-marriage"
 }
