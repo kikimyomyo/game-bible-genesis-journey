@@ -107,11 +107,12 @@
       );
     }
 
-    function ModuleMap({ player, modules, characters, progress, onSelect, onReset }) {
+    function ModuleMap({ player, modules, characters, progress, onSelect, onReset, unlockMode }) {
       const isMobile = useIsMobile();
       const completed = Object.keys(progress).filter((k) => progress[k]?.completed);
 
       const isUnlocked = (mod) => {
+        if (unlockMode === 'free') return true;  // 모든 에피소드 자유 접근
         if (!mod.requires || mod.requires.length === 0) return true;
         return mod.requires.every((req) => progress[req]?.completed);
       };
@@ -964,6 +965,7 @@
           progress={progress}
           onSelect={onSelect}
           onReset={onReset}
+          unlockMode={modulesConfig?.unlockMode || 'linear'}
         />
       );
     }

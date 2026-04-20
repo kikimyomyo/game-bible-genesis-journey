@@ -1,7 +1,7 @@
 {
   "title": "창세기 이야기 여행",
   "description": "창조부터 요셉까지, 20개 에피소드로 창세기를 완주해요",
-  "unlockMode": "linear",
+  "unlockMode": "free",
   "charactersPath": "data/characters.json",
   "modules": [
     { "id": "creation",          "character": "primeval", "path": "data/episodes/creation.json" },
