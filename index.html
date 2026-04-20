@@ -192,65 +192,136 @@
         () => info.scenes.map((s, i) => ({ ...s, _idx: i })),
         [info.scenes]
       );
-      const [order, setOrder] = useState(() => shuffleArr(scenesWithIdx));
+
+      // 슬롯 아이템: {key, type: 'card'|'placeholder', scene?, placeholderIdx?}
+      // 슬롯 4개(초기 모두 placeholder), 풀 4개(초기 모두 card 섞임)
+      function freshState() {
+        const placeholders = scenesWithIdx.map((_, i) => ({ key: `p${i}`, type: 'placeholder', placeholderIdx: i }));
+        const cards = scenesWithIdx.map((s, i) => ({ key: `c${i}`, type: 'card', scene: s }));
+        // 카드 풀을 섞음
+        const shuffledCards = [...cards];
+        for (let i = shuffledCards.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffledCards[i], shuffledCards[j]] = [shuffledCards[j], shuffledCards[i]];
+        }
+        return { slots: placeholders, pool: shuffledCards };
+      }
+
+      const [state, setState] = useState(freshState);
       const [checked, setChecked] = useState(false);
       const [hintsUsed, setHintsUsed] = useState(0);
       const [showEpilogue, setShowEpilogue] = useState(false);
-      const [showRefs, setShowRefs] = useState(false); // 성경 구절 힌트 (기본 숨김)
-      const listRef = useRef(null);
-      const sortableRef = useRef(null);
+      const [showRefs, setShowRefs] = useState(false);
+      const slotsRef = useRef(null);
+      const poolRef = useRef(null);
+      const sortableSlotsRef = useRef(null);
+      const sortablePoolRef = useRef(null);
       const [startTime] = useState(() => Date.now());
 
+      // 모든 아이템 key → item 맵
+      const allItemsMap = useMemo(() => {
+        const m = new Map();
+        [...state.slots, ...state.pool].forEach((it) => m.set(it.key, it));
+        return m;
+      }, [state]);
+
+      // SortableJS 2개 그룹 설정
       useEffect(() => {
         if (checked || showEpilogue) {
-          if (sortableRef.current) { sortableRef.current.destroy(); sortableRef.current = null; }
+          if (sortableSlotsRef.current) { sortableSlotsRef.current.destroy(); sortableSlotsRef.current = null; }
+          if (sortablePoolRef.current) { sortablePoolRef.current.destroy(); sortablePoolRef.current = null; }
           return;
         }
-        if (!listRef.current || !window.Sortable) return;
-        sortableRef.current = window.Sortable.create(listRef.current, {
-          animation: 220, delay: 120, delayOnTouchOnly: true,
+        if (!slotsRef.current || !poolRef.current || !window.Sortable) return;
+
+        const syncFromDOM = () => {
+          const slotKeys = Array.from(slotsRef.current.children).map((c) => c.dataset.key);
+          const poolKeys = Array.from(poolRef.current.children).map((c) => c.dataset.key);
+          setState((prev) => {
+            const map = new Map();
+            [...prev.slots, ...prev.pool].forEach((it) => map.set(it.key, it));
+            return {
+              slots: slotKeys.map((k) => map.get(k)).filter(Boolean),
+              pool: poolKeys.map((k) => map.get(k)).filter(Boolean),
+            };
+          });
+          sfx.click();
+        };
+
+        sortableSlotsRef.current = window.Sortable.create(slotsRef.current, {
+          group: { name: 'plot', pull: true, put: true },
+          animation: 220, delay: 80, delayOnTouchOnly: true,
           ghostClass: 'scene-ghost', chosenClass: 'scene-chosen',
           onChoose: () => sfx.tap(),
-          onEnd: () => {
-            const idxs = Array.from(listRef.current.children).map((c) => Number(c.dataset.idx));
-            setOrder(idxs.map((i) => scenesWithIdx[i]));
-            sfx.click();
-          },
+          onEnd: syncFromDOM,
         });
-        return () => { if (sortableRef.current) { sortableRef.current.destroy(); sortableRef.current = null; } };
+        sortablePoolRef.current = window.Sortable.create(poolRef.current, {
+          group: { name: 'plot', pull: true, put: true },
+          animation: 220, delay: 80, delayOnTouchOnly: true,
+          ghostClass: 'scene-ghost', chosenClass: 'scene-chosen',
+          onChoose: () => sfx.tap(),
+          onEnd: syncFromDOM,
+        });
+        return () => {
+          if (sortableSlotsRef.current) { sortableSlotsRef.current.destroy(); sortableSlotsRef.current = null; }
+          if (sortablePoolRef.current) { sortablePoolRef.current.destroy(); sortablePoolRef.current = null; }
+        };
       }, [checked, showEpilogue]);
 
-      const allCorrect = order.every((s, i) => s._idx === i);
-      const correctCount = order.filter((s, i) => s._idx === i).length;
+      // 정답 판정 — 슬롯의 각 위치에 카드가 있고 _idx가 일치하는지
+      const filledCount = state.slots.filter((it) => it.type === 'card').length;
+      const correctCount = state.slots.reduce((acc, it, i) => acc + (it.type === 'card' && it.scene._idx === i ? 1 : 0), 0);
+      const allFilled = filledCount === scenesWithIdx.length;
+      const allCorrect = allFilled && correctCount === scenesWithIdx.length;
 
       function check() {
+        if (!allFilled) return;
         sfx.click();
         setChecked(true);
         setTimeout(() => {
           if (allCorrect) sfx.correct();
-          else if (correctCount >= order.length - 1) sfx.partial();
+          else if (correctCount >= scenesWithIdx.length - 1) sfx.partial();
           else sfx.wrong();
         }, 80);
       }
 
       function useHint() {
         if (checked) return;
-        const wrongIdxs = order.map((s, i) => (s._idx !== i ? i : -1)).filter((i) => i >= 0);
-        if (!wrongIdxs.length) return;
-        const targetPos = wrongIdxs[Math.floor(Math.random() * wrongIdxs.length)];
+        // 틀리거나 비어있는 슬롯 찾기
+        const wrongSlotIdxs = state.slots.map((it, i) => {
+          if (it.type === 'placeholder') return i;
+          return it.scene._idx !== i ? i : -1;
+        }).filter((i) => i >= 0);
+        if (!wrongSlotIdxs.length) return;
+        const targetPos = wrongSlotIdxs[Math.floor(Math.random() * wrongSlotIdxs.length)];
         const correctScene = scenesWithIdx[targetPos];
-        const currentPos = order.findIndex((s) => s._idx === correctScene._idx);
-        if (currentPos < 0 || currentPos === targetPos) return;
-        const next = [...order];
-        [next[targetPos], next[currentPos]] = [next[currentPos], next[targetPos]];
-        setOrder(next);
+        const correctKey = `c${correctScene._idx}`;
+
+        // 어디에 있는지 찾기
+        const slotIdx = state.slots.findIndex((it) => it.key === correctKey);
+        const poolIdx = state.pool.findIndex((it) => it.key === correctKey);
+
+        setState((prev) => {
+          const slots = [...prev.slots];
+          const pool = [...prev.pool];
+          if (slotIdx >= 0) {
+            // 슬롯 간 swap (targetPos와 slotIdx)
+            [slots[targetPos], slots[slotIdx]] = [slots[slotIdx], slots[targetPos]];
+          } else if (poolIdx >= 0) {
+            // 풀에서 슬롯으로 — 타겟 슬롯의 기존 아이템은 풀로
+            const fromSlot = slots[targetPos];
+            slots[targetPos] = pool[poolIdx];
+            pool[poolIdx] = fromSlot;
+          }
+          return { slots, pool };
+        });
         setHintsUsed((h) => h + 1);
         sfx.click();
       }
 
       function reshuffle() {
         sfx.click();
-        setOrder(shuffleArr(scenesWithIdx));
+        setState(freshState());
         setChecked(false);
       }
 
@@ -265,14 +336,14 @@
         onComplete({
           moduleId: module.id,
           score: correctCount,
-          total: order.length,
+          total: scenesWithIdx.length,
           duration_sec: duration,
           hints_used: hintsUsed,
-          answers: order.map((s, i) => ({
+          answers: state.slots.map((it, i) => ({
             position: i + 1,
             expected: scenesWithIdx[i].title,
-            chosen: s.title,
-            ok: s._idx === i,
+            chosen: it.type === 'card' ? it.scene.title : '(빈 칸)',
+            ok: it.type === 'card' && it.scene._idx === i,
           })),
         });
       }
@@ -325,76 +396,69 @@
             </div>
             {checked && (
               <div style={{ marginTop: 12, padding: 12, borderRadius: 12, fontWeight: 700,
-                background: allCorrect ? '#d1fae5' : correctCount >= order.length - 1 ? '#fef3c7' : '#fee2e2' }}>
-                {allCorrect ? '🎉 전부 맞았어요!' : `✏️ ${correctCount}/${order.length} 맞음 — 빨간 카드를 다시 옮겨보세요.`}
+                background: allCorrect ? '#d1fae5' : correctCount >= scenesWithIdx.length - 1 ? '#fef3c7' : '#fee2e2' }}>
+                {allCorrect ? '🎉 전부 맞았어요!' : `✏️ ${correctCount}/${scenesWithIdx.length} 맞음 — 빨간 자리를 다시 옮겨보세요.`}
               </div>
             )}
           </div>
 
-          <div
-            ref={listRef}
-            style={{
-              display: 'grid',
-              gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : `repeat(${order.length}, 1fr)`,
-              gap: isMobile ? 10 : 12,
-              alignItems: 'stretch',
-            }}
-          >
-            {order.map((scene, i) => {
-              const ok = checked && scene._idx === i;
-              const wrong = checked && scene._idx !== i;
-              return (
-                <div
-                  key={scene._idx}
-                  data-idx={scene._idx}
-                  style={{
-                    background: ok ? '#d1fae5' : wrong ? '#fee2e2' : 'white',
-                    border: '3px solid ' + (ok ? '#10b981' : wrong ? '#ef4444' : '#e5e7eb'),
-                    borderRadius: 16, padding: isMobile ? 12 : 14,
-                    cursor: checked ? 'default' : 'grab', userSelect: 'none',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center',
-                    textAlign: 'center', minHeight: isMobile ? 190 : 240,
-                    position: 'relative',
-                  }}
-                >
-                  {/* 슬롯 번호 배지 */}
-                  <div style={{
-                    position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)',
-                    width: 36, height: 36, borderRadius: '50%',
-                    background: ok ? '#10b981' : wrong ? '#ef4444' : (info.color || '#6366f1'),
-                    color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '0.95em', fontWeight: 800, boxShadow: '0 3px 8px rgba(0,0,0,0.15)',
-                  }}>{i + 1}</div>
+          {/* 상단: 순서 슬롯 */}
+          <div style={{ background: 'rgba(255,255,255,0.6)', border: '2px dashed #c7d2fe', borderRadius: 18, padding: isMobile ? 12 : 16, marginBottom: 14 }}>
+            <div style={{ fontSize: '0.82em', fontWeight: 700, color: '#4338ca', marginBottom: 10, textAlign: 'center' }}>
+              ⬇ 순서대로 놓을 자리
+            </div>
+            <div
+              ref={slotsRef}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : `repeat(${scenesWithIdx.length}, 1fr)`,
+                gap: isMobile ? 10 : 12,
+                alignItems: 'stretch',
+                minHeight: 100,
+              }}
+            >
+              {state.slots.map((it, i) => (
+                <SlotCard
+                  key={it.key}
+                  item={it}
+                  slotIndex={i}
+                  checked={checked}
+                  showRefs={showRefs}
+                  isMobile={isMobile}
+                  color={info.color}
+                />
+              ))}
+            </div>
+          </div>
 
-                  <div style={{ fontSize: isMobile ? '2.4em' : '2.8em', lineHeight: 1, marginTop: 14, marginBottom: 8 }}>
-                    {scene.emoji}
-                  </div>
-                  <div style={{ fontSize: isMobile ? '0.92em' : '1em', fontWeight: 800, marginBottom: 6, color: '#1f2937' }}>
-                    {scene.title}
-                  </div>
-                  {scene.quote && (
-                    <div style={{ fontSize: isMobile ? '0.78em' : '0.82em', color: '#6b7280', lineHeight: 1.4, marginBottom: 8, flex: 1 }}>
-                      "{scene.quote}"
-                    </div>
-                  )}
-                  {showRefs && scene.ref && (
-                    <div style={{ fontSize: '0.72em', color: '#4338ca', background: '#eef2ff', padding: '3px 10px', borderRadius: 10, marginBottom: 8 }}>
-                      {scene.ref}
-                    </div>
-                  )}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); speakScene(scene); }}
-                    onTouchStart={(e) => e.stopPropagation()}
-                    style={{
-                      marginTop: 'auto', width: 36, height: 36, borderRadius: '50%',
-                      background: '#eef2ff', border: 'none', cursor: 'pointer', fontSize: 14,
-                    }}
-                    title="이 장면 듣기"
-                  >🔊</button>
-                </div>
-              );
-            })}
+          {/* 하단: 카드 풀 */}
+          <div style={{ background: 'rgba(254, 243, 199, 0.6)', border: '2px solid #fde68a', borderRadius: 18, padding: isMobile ? 12 : 16 }}>
+            <div style={{ fontSize: '0.82em', fontWeight: 700, color: '#92400e', marginBottom: 10, textAlign: 'center' }}>
+              🃏 카드 풀 — 위 자리로 끌어 놓으세요
+            </div>
+            <div
+              ref={poolRef}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : `repeat(${scenesWithIdx.length}, 1fr)`,
+                gap: isMobile ? 10 : 12,
+                alignItems: 'stretch',
+                minHeight: 100,
+              }}
+            >
+              {state.pool.map((it) => (
+                <SlotCard
+                  key={it.key}
+                  item={it}
+                  slotIndex={-1}
+                  checked={checked}
+                  showRefs={showRefs}
+                  isMobile={isMobile}
+                  color={info.color}
+                  inPool
+                />
+              ))}
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginTop: 18 }}>
@@ -402,7 +466,14 @@
               <>
                 <button onClick={reshuffle} style={btnStyle('#94a3b8')}>🔀 다시 섞기</button>
                 <button onClick={useHint} style={btnStyle('#f59e0b')}>💡 힌트 ({hintsUsed}회)</button>
-                <button onClick={check} style={btnStyle('#6366f1')}>✅ 정답 확인</button>
+                <button
+                  onClick={check}
+                  disabled={!allFilled}
+                  style={{ ...btnStyle('#6366f1'), opacity: allFilled ? 1 : 0.4, cursor: allFilled ? 'pointer' : 'not-allowed' }}
+                  title={allFilled ? '' : '빈 자리를 모두 채워주세요'}
+                >
+                  ✅ 정답 확인 {!allFilled && `(${filledCount}/${scenesWithIdx.length})`}
+                </button>
               </>
             ) : allCorrect ? (
               <button onClick={goEpilogue} style={btnStyle('#10b981')}>📖 이야기 교훈 듣기 →</button>
@@ -413,6 +484,101 @@
               </>
             )}
           </div>
+        </div>
+      );
+    }
+
+    // 카드/플레이스홀더 공용 컴포넌트
+    function SlotCard({ item, slotIndex, checked, showRefs, isMobile, color, inPool }) {
+      const isPlaceholder = item.type === 'placeholder';
+      const scene = item.scene;
+      const ok = checked && !isPlaceholder && !inPool && scene._idx === slotIndex;
+      const wrong = checked && !isPlaceholder && !inPool && scene._idx !== slotIndex;
+
+      if (isPlaceholder) {
+        // 슬롯의 빈 자리: 번호 배지 + 점선 박스
+        // 풀의 빈 자리: 그냥 회색 박스
+        return (
+          <div
+            data-key={item.key}
+            style={{
+              background: inPool ? 'rgba(229,231,235,0.4)' : 'rgba(199,210,254,0.15)',
+              border: '2px dashed ' + (inPool ? '#d1d5db' : '#a5b4fc'),
+              borderRadius: 16, padding: isMobile ? 12 : 14,
+              minHeight: isMobile ? 170 : 220,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              position: 'relative',
+              color: '#9ca3af',
+              cursor: 'grab', userSelect: 'none',
+            }}
+          >
+            {!inPool && slotIndex >= 0 && (
+              <div style={{
+                position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)',
+                width: 36, height: 36, borderRadius: '50%',
+                background: color || '#6366f1',
+                color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '0.95em', fontWeight: 800, boxShadow: '0 3px 8px rgba(0,0,0,0.15)',
+              }}>{slotIndex + 1}</div>
+            )}
+            <div style={{ fontSize: isMobile ? '1.3em' : '1.5em', opacity: 0.5 }}>⬚</div>
+            <div style={{ fontSize: '0.76em', marginTop: 6 }}>
+              {inPool ? '빈 자리' : `${slotIndex + 1}번 자리`}
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div
+          data-key={item.key}
+          style={{
+            background: ok ? '#d1fae5' : wrong ? '#fee2e2' : 'white',
+            border: '3px solid ' + (ok ? '#10b981' : wrong ? '#ef4444' : '#e5e7eb'),
+            borderRadius: 16, padding: isMobile ? 12 : 14,
+            cursor: checked ? 'default' : 'grab', userSelect: 'none',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            textAlign: 'center', minHeight: isMobile ? 190 : 240,
+            position: 'relative',
+          }}
+        >
+          {/* 슬롯에 놓였을 때만 번호 배지 표시 */}
+          {!inPool && slotIndex >= 0 && (
+            <div style={{
+              position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)',
+              width: 36, height: 36, borderRadius: '50%',
+              background: ok ? '#10b981' : wrong ? '#ef4444' : (color || '#6366f1'),
+              color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '0.95em', fontWeight: 800, boxShadow: '0 3px 8px rgba(0,0,0,0.15)',
+            }}>{slotIndex + 1}</div>
+          )}
+
+          <div style={{ fontSize: isMobile ? '2.4em' : '2.8em', lineHeight: 1, marginTop: (!inPool && slotIndex >= 0) ? 14 : 4, marginBottom: 8 }}>
+            {scene.emoji}
+          </div>
+          <div style={{ fontSize: isMobile ? '0.92em' : '1em', fontWeight: 800, marginBottom: 6, color: '#1f2937' }}>
+            {scene.title}
+          </div>
+          {scene.quote && (
+            <div style={{ fontSize: isMobile ? '0.78em' : '0.82em', color: '#6b7280', lineHeight: 1.4, marginBottom: 8, flex: 1 }}>
+              "{scene.quote}"
+            </div>
+          )}
+          {showRefs && scene.ref && (
+            <div style={{ fontSize: '0.72em', color: '#4338ca', background: '#eef2ff', padding: '3px 10px', borderRadius: 10, marginBottom: 8 }}>
+              {scene.ref}
+            </div>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); speakScene(scene); }}
+            onTouchStart={(e) => e.stopPropagation()}
+            style={{
+              marginTop: 'auto', width: 36, height: 36, borderRadius: '50%',
+              background: '#eef2ff', border: 'none', cursor: 'pointer', fontSize: 14,
+            }}
+            title="이 장면 듣기"
+          >🔊</button>
         </div>
       );
     }
